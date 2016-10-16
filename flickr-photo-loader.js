@@ -45,7 +45,7 @@ function handleSearchResult(err, searchResult, resolve, reject) {
 }
 
 function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
-  var originalPhoto = _.findWhere(result.sizes.size, { label: "Large"});
+  var originalPhoto = _.findWhere(result.sizes.size, { label: "Original"});
   if(originalPhoto.media != "photo") {
     console.log("Landed on a video.  That's bad.  Let's try again.");
     getAPicture(resolve, reject);

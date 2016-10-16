@@ -8,6 +8,8 @@ var send = require('koa-send');
 var flickrLoader = require('./flickr-photo-loader');
 var flickrConfig = require('./flickr-config');
 var fs = require('fs');
+
+deletePartiallyLoadedFileIfFound();
  
 app.use(handlebars({
   defaultLayout: "main"
@@ -42,7 +44,7 @@ function nextFileIsBeingLoaded() {
   var nextNextFileExists = true;
   try {
     var a = fs.accessSync('images/next_next.jpg', fs.F_OK);
-    console.log('Hmm: ' + a);
+    console.log('Found next_next');
   } catch(err) {
     nextNextFileExists = false;
   }
@@ -51,5 +53,11 @@ function nextFileIsBeingLoaded() {
   
 }
 
-app.listen(8080);
+function deletePartiallyLoadedFileIfFound() {
+  if(nextFileIsBeingLoaded()) {
+    fs.unlinkSync('.images/next_next.jpg');
+  }
+}
+
+app.listen(8080,null,null,function() { console.log('Started sharing photos on process #' + process.pid);});
 

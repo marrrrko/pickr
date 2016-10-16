@@ -6,7 +6,6 @@ var fs = require('fs');
 var Flickr = require("flickrapi");
 
 function retrieveNextPhoto(flickrOptions) {
-  console.log("Looks like you want another picture.");
   var promise = new Promise(function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
       importantStuff.flickr = flickr;
@@ -22,6 +21,7 @@ function retrieveNextPhoto(flickrOptions) {
 
 function getAPicture(resolve, reject) {
     var randomPhotoNumber = Math.floor(Math.random() * importantStuff.totalNumberOfPhotos);
+    console.log('Randomly selected photo #' + randomPhotoNumber + ' out of ' + importantStuff.totalNumberOfPhotos + ' photos.')
     importantStuff.flickr.photos.search({
       user_id: importantStuff.flickr.options.user_id,
       authenticated: true,
@@ -56,7 +56,11 @@ function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
     fileStream.on('finish', function () {
       photoInfo.file = fileUrl;
       console.log("Photo acquired!");
-      fs.renameSync("./images/next_next.jpg", "./images/next.jpg")
+      try {
+        fs.renameSync("./images/next_next.jpg", "./images/next.jpg")
+      } catch(err) {
+        console.log("Failed to rename next_next to next: " + err);
+      }
       resolve(photoInfo);
     });
     var request = https.get(originalPhoto.source, function(response) {

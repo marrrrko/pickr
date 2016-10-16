@@ -1,6 +1,14 @@
-<span class="top-text">Let's get started!</span>
-<!--<img src="feed" alt="A photo" width="100%">-->
+<span class="top-text">Let's get started!</span><br />
+<img class="the-photo" src="feed" alt="A photo">
 
+<style>
+  
+  .the-photo {
+    max-width: 50%;
+    max-height: 50%;
+  }
+  
+</style>
 
 <script>
   $(document).ready(function() {
@@ -8,7 +16,7 @@
   });
   
   function refreshPhoto() {
-    //$('img').prop("src","feed?" + new Date().getTime());
+    $('img').prop("src","feed?" + new Date().getTime());
     var now = new moment();
     $(".top-text").text("Updated text now: " + now.format("HH:mm:ss"));
   }

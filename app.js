@@ -19,9 +19,17 @@ app.use(route.get('/feed', providePhoto));
 app.use(route.get('/viewer', showViewer));
 
 function *providePhoto(next) {
+  try {
   yield send(this, 'images/next.jpg');
   yield next;
+  } catch(err) {
+    console.log("Failed to serve up next.jpg: " + err);
+  }
+  try {
   fetchNextPhoto();
+  } catch(err) {
+    console.log('Failed to fetch next photo: ' + err);
+  }
 }
 
 function *showViewer() {

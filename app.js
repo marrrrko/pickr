@@ -63,7 +63,7 @@ function nextFileIsBeingLoaded() {
 
 function deletePartiallyLoadedFileIfFound() {
   if(nextFileIsBeingLoaded()) {
-    fs.unlinkSync('.images/next_next.jpg');
+    fs.unlinkSync('./images/next_next.jpg');
   }
 }
 

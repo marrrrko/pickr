@@ -1,11 +1,41 @@
-<span class="top-text">Let's get started!</span><br />
-<img class="the-photo" src="feed" alt="A photo">
-
+<div id="image-viewer">
+  <div class="image-photo">
+    <img class="the-photo" src="feed" alt="A photo">
+  </div>
+</div>
 <style>
   
-  .the-photo {
-    max-width: 50%;
-    max-height: 50%;
+  html, body {
+    background-color: white;
+    padding: 0;
+    margin: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+  }
+  
+  div#image-viewer {
+    position: absolute;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 100;
+  }
+  
+  div.image-photo {
+    position: absolute;
+    padding: 20px;
+    margin: 0;
+    height: 100%;
+  }
+  
+  div.image-photo img {
+    object-fit: contain;
+    object-position: 50% 50%;
+    width: 100%;
+    height: 100%;
   }
   
 </style>

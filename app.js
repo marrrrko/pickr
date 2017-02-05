@@ -20,13 +20,14 @@ app.use(route.get('/viewer', showViewer));
 
 function *providePhoto(next) {
   try {
-  yield send(this, 'images/next.jpg');
-  yield next;
+    yield send(this, 'images/next.jpg');
+    yield next;
   } catch(err) {
     console.log("Failed to serve up next.jpg: " + err);
+    yield next;
   }
   try {
-  fetchNextPhoto();
+    fetchNextPhoto();
   } catch(err) {
     console.log('Failed to fetch next photo: ' + err);
   }
@@ -67,5 +68,8 @@ function deletePartiallyLoadedFileIfFound() {
   }
 }
 
-app.listen(8080,null,null,function() { console.log('Started sharing photos on process #' + process.pid);});
+var port = process.env.PORT;
+if(!port)
+  port = 8080;
+app.listen(port,null,null,function() { console.log('Process #' + process.pid + ' started sharing photos on port ' + port);});
 

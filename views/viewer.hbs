@@ -1,6 +1,6 @@
 <div id="image-viewer">
   <div class="image-photo">
-    <img class="the-photo" src="feed" alt="A photo">
+    <img class="the-photo" src="feed" alt="If you can read this, something went terribly wrong.">
   </div>
 </div>
 <style>
@@ -46,8 +46,13 @@
   });
   
   function refreshPhoto() {
-    $('img').prop("src","feed?" + new Date().getTime());
-    var now = new moment();
-    $(".top-text").text("Updated text now: " + now.format("HH:mm:ss"));
+    try {
+      $('img').prop("src","feed?" + new Date().getTime());
+      var now = new moment();
+      $(".top-text").text("Updated text now: " + now.format("HH:mm:ss"));
+    } catch(err) {
+      console.log("Something bad happened: " + err)
+      console.log("No worries.  We'll try again shortly.")
+    }
   }
 </script>

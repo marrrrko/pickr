@@ -17,6 +17,7 @@ app.use(handlebars({
  
 app.use(route.get('/feed', providePhoto));
 app.use(route.get('/viewer', showViewer));
+app.use(route.get('/info', showInfo));
 
 function *providePhoto(next) {
   try {
@@ -38,6 +39,10 @@ function *showViewer() {
     title: "Test Page 2",
     name: "Worldy"
   });
+}
+
+function *showInfo() {
+  this.body = 'Piframe is up!'
 }
 
 function fetchNextPhoto() {

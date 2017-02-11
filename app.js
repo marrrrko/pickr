@@ -24,6 +24,13 @@ function startThingsUp() {
   app.use(route.get('/feed', providePhoto));
   app.use(route.get('/viewer', showViewer));
   app.use(route.get('/info', showInfo));
+  
+  var port = process.env.PORT;
+  if(!port)
+    port = 8080;
+  
+  app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port);});
+  
 }
 
 function *providePhoto(next) {
@@ -102,10 +109,4 @@ function configureCouchLoggingIfPossible() {
     });
   });
 }
-
-var port = process.env.PORT;
-if(!port)
-  port = 8080;
-  
-app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port);});
 

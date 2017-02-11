@@ -15,22 +15,24 @@ winston.add(winston.transports.File, { filename: 'piframe.log' });
 configureCouchLoggingIfPossible().then(startThingsUp);
 
 function startThingsUp() {
-  deletePartiallyLoadedFileIfFound();
- 
-  app.use(handlebars({
-    defaultLayout: "main"
-  })); 
- 
-  app.use(route.get('/feed', providePhoto));
-  app.use(route.get('/viewer', showViewer));
-  app.use(route.get('/info', showInfo));
-  
-  var port = process.env.PORT;
-  if(!port)
-    port = 8080;
-  
-  app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port);});
-  
+  return new Promise((resolve, reject) => {
+    winston.info("Getting things ready...")
+    deletePartiallyLoadedFileIfFound();
+   
+    app.use(handlebars({
+      defaultLayout: "main"
+    })); 
+   
+    app.use(route.get('/feed', providePhoto));
+    app.use(route.get('/viewer', showViewer));
+    app.use(route.get('/info', showInfo));
+    
+    var port = process.env.PORT;
+    if(!port)
+      port = 8080;
+    
+    app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port);});
+  })
 }
 
 function *providePhoto(next) {
@@ -106,6 +108,7 @@ function configureCouchLoggingIfPossible() {
       });
     }).on("error", function(e){
       winston.info("Couch didn't seem available so no couch logging")
+      resolve();
     });
   });
 }

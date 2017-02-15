@@ -4,6 +4,23 @@ var _ = require("underscore");
 var https = require('https');
 var fs = require('fs');
 var Flickr = require("flickrapi");
+var winston;
+var chokidar = require('chokidar');
+
+function supplyPhotos(flickrOptions, winstonLog) {
+  winston = winstonLog
+  winston.info("Flickr photo loader doing it's thing")
+  deletePartiallyLoadedFileIfFound();
+  chokidar.watch('./images/next.jpg', {
+      persistent: true
+    }).on('unlink', (event, path) => {
+      winston.info(`Looks like ${path} has been consumed.  Let\'s get another.`)
+      retrieveNextPhoto(flickrOptions)
+  });
+  
+  if(!nextFileExists())
+    retrieveNextPhoto(flickrOptions)
+}
 
 function retrieveNextPhoto(flickrOptions) {
   var promise = new Promise(function(resolve, reject) {
@@ -21,7 +38,7 @@ function retrieveNextPhoto(flickrOptions) {
 
 function getAPicture(resolve, reject) {
     var randomPhotoNumber = Math.floor(Math.random() * importantStuff.totalNumberOfPhotos);
-    console.log('Randomly selected photo #' + randomPhotoNumber + ' out of ' + importantStuff.totalNumberOfPhotos + ' photos.')
+    winston.info('Randomly selected photo #' + randomPhotoNumber + ' out of ' + importantStuff.totalNumberOfPhotos + ' photos.')
     importantStuff.flickr.photos.search({
       user_id: importantStuff.flickr.options.user_id,
       authenticated: true,
@@ -31,7 +48,7 @@ function getAPicture(resolve, reject) {
 }
 
 function handleSearchResult(err, searchResult, resolve, reject) {
-  console.log("Fetching photo titled \"" + searchResult.photos.photo[0].title + "\".");
+  winston.info("Fetching photo titled \"" + searchResult.photos.photo[0].title + "\".");
   if(searchResult.photos.photo[0].ispublic || searchResult.photos.photo[0].isfamily || searchResult.photos.photo[0].isfriend) {
     importantStuff.flickr.photos.getSizes({
       user_id: importantStuff.flickr.options.user_id,
@@ -39,7 +56,7 @@ function handleSearchResult(err, searchResult, resolve, reject) {
       photo_id: searchResult.photos.photo[0].id
     }, function(err, sizesResult) { handleGetSizesResult(err,sizesResult,searchResult.photos.photo[0], resolve, reject); });
   } else {
-    console.log("Landed on a private photo.  That's bad.  Let's try again.");
+    winston.info("Landed on a private photo.  That's bad.  Let's try again.");
     getAPicture(resolve, reject);
   }
 }
@@ -47,19 +64,17 @@ function handleSearchResult(err, searchResult, resolve, reject) {
 function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
   var originalPhoto = _.findWhere(result.sizes.size, { label: "Original"});
   if(originalPhoto.media != "photo") {
-    console.log("Landed on a video.  That's bad.  Let's try again.");
+    winston.info("Landed on a video.  That's bad.  Let's try again.");
     getAPicture(resolve, reject);
   } else {
-    var filename = "./images/next_next.jpg";
-    var fileUrl = "/images/next_next.jpg";
+    var filename = "./images/next_partial.jpg";
     var fileStream = fs.createWriteStream(filename);
     fileStream.on('finish', function () {
-      photoInfo.file = fileUrl;
-      console.log("Photo acquired!");
+      winston.info("Photo acquired!");
       try {
-        fs.renameSync("./images/next_next.jpg", "./images/next.jpg")
+        fs.renameSync("./images/next_partial.jpg", "./images/next.jpg")
       } catch(err) {
-        console.log("Failed to rename next_next to next: " + err);
+        winston.info("Failed to rename next_partial to next: " + err);
       }
       resolve(photoInfo);
     });
@@ -69,4 +84,33 @@ function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
   }
 }
 
-module.exports.retrieveNextPhoto = retrieveNextPhoto;
+function nextFileExists() {
+  var nextFileExists = true;
+  try {
+    var a = fs.accessSync('./images/next.jpg', fs.F_OK);
+    winston.info('Found next');
+  } catch(err) {
+    nextFileExists = false;
+    winston.info('Didn\'t find next.');
+  }
+  
+  return nextFileExists;
+}
+
+function deletePartiallyLoadedFileIfFound() {
+  var partialFileExists = true;
+  try {
+    var a = fs.accessSync('./images/next_partial.jpg', fs.F_OK);
+    winston.info('Found next_partial');
+  } catch(err) {
+    partialFileExists = false;
+    winston.info('Didn\'t find next_partial.  Clean clean.');
+  }
+  
+  if(partialFileExists) {
+    fs.unlinkSync('./images/next_partial.jpg');
+  }
+}
+
+module.exports.retrieveNextPhoto = retrieveNextPhoto
+module.exports.supplyPhotos = supplyPhotos

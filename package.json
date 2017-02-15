@@ -24,6 +24,7 @@
   },
   "homepage": "https://github.com/SrGrieves/rasberry-node-frame#readme",
   "dependencies": {
+    "chokidar": "^1.6.1",
     "flickrapi": "^0.6.0",
     "koa": "^1.2.4",
     "koa-handlebars": "^0.5.7",

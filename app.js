@@ -17,7 +17,6 @@ configureCouchLoggingIfPossible().then(startThingsUp);
 function startThingsUp() {
   return new Promise((resolve, reject) => {
     winston.info("Getting things ready...")
-    deletePartiallyLoadedFileIfFound();
    
     app.use(handlebars({
       defaultLayout: "main"
@@ -26,6 +25,8 @@ function startThingsUp() {
     app.use(route.get('/feed', providePhoto));
     app.use(route.get('/viewer', showViewer));
     app.use(route.get('/info', showInfo));
+    
+    flickrLoader.supplyPhotos(flickrConfig,winston)
     
     var port = process.env.PORT;
     if(!port)
@@ -37,16 +38,20 @@ function startThingsUp() {
 
 function *providePhoto(next) {
   try {
-    yield send(this, 'images/next.jpg');
+    
+    if(nextFileIsReady()) {
+      try {
+        fs.renameSync("./images/next.jpg", "./images/current.jpg")
+      } catch(err) {
+        console.log("Failed to rename next to current: " + err);
+      }
+    }
+    
+    yield send(this, 'images/current.jpg');
     yield next;
   } catch(err) {
-    winston.error("Failed to serve up next.jpg: " + err);
+    winston.error("Failed to provide a photo: " + err);
     yield next;
-  }
-  try {
-    fetchNextPhoto();
-  } catch(err) {
-    winston.error('Failed to fetch next photo: ' + err);
   }
 }
 
@@ -70,10 +75,10 @@ function fetchNextPhoto() {
   }
 }
 
-function nextFileIsBeingLoaded() {
+function nextFileIsReady() {
   var nextNextFileExists = true;
   try {
-    var a = fs.accessSync('images/next_next.jpg', fs.F_OK);
+    var a = fs.accessSync('images/next.jpg', fs.F_OK);
     winston.debug('Found next_next');
   } catch(err) {
     nextNextFileExists = false;
@@ -83,11 +88,6 @@ function nextFileIsBeingLoaded() {
   
 }
 
-function deletePartiallyLoadedFileIfFound() {
-  if(nextFileIsBeingLoaded()) {
-    fs.unlinkSync('./images/next_next.jpg');
-  }
-}
 
 function configureCouchLoggingIfPossible() {
   return new Promise((resolve, reject) => { 

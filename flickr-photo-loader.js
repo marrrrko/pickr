@@ -11,25 +11,40 @@ function supplyPhotos(flickrOptions, winstonLog) {
   winston = winstonLog
   winston.info("Flickr photo loader doing it's thing")
   deletePartiallyLoadedFileIfFound();
-  chokidar.watch('./images/next.jpg', {
-      persistent: true
-    }).on('unlink', (event, path) => {
-      winston.info(`Looks like ${path} has been consumed.  Let\'s get another.`)
-      retrieveNextPhoto(flickrOptions)
-  });
   
-  if(!nextFileExists())
+  chokidar.watch('./images/next.jpg', {
+    persistent: true
+  }).on('unlink', function(path) {
+    winston.info('Looks like next.jpg was consumed')
     retrieveNextPhoto(flickrOptions)
+  }).on('ready', function() {
+    console.log('Tracking ./images/next.jpg');
+    if(!nextFileExists())
+      retrieveNextPhoto(flickrOptions)
+  })
 }
 
 function retrieveNextPhoto(flickrOptions) {
   var promise = new Promise(function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
       importantStuff.flickr = flickr;
-      flickr.photos.getCounts({ dates:[0,new Date().getTime()]}, function(err, result) {
-        importantStuff.totalNumberOfPhotos = result.photocounts.photocount[0].count;
-        getAPicture(resolve, reject);
-      });
+      
+      var mode = 'mine';
+      if(Math.random() < 0.5 && false)
+        mode = 'aris'
+      
+      if(mode == 'mine' ) {
+        flickr.photos.getCounts({ dates:[0,new Date().getTime()]}, function(err, result) {
+          importantStuff.totalNumberOfPhotos = result.photocounts.photocount[0].count;
+          getAPicture(resolve, reject);
+        });
+      } else {
+        flickr.photos.search({ dates:[0,new Date().getTime()]}, function(err, result) {
+          importantStuff.totalNumberOfPhotos = result.photocounts.photocount[0].count;
+          getAPicture(resolve, reject);
+        });
+        
+      }
     });
   });
 

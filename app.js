@@ -38,16 +38,21 @@ function startThingsUp() {
 
 function *providePhoto(next) {
   try {
-    
+    winston.info('A client has requested a photo')   
     if(nextFileIsReady()) {
+      winston.info('Looks like we have a new picture to serve')
       try {
         fs.renameSync("./images/next.jpg", "./images/current.jpg")
+        winston.info('Next renamed to current')
       } catch(err) {
-        console.log("Failed to rename next to current: " + err);
+        winston.error("Failed to rename next to current: " + err);
       }
+    } else {
+      winston.info('Looks like next file is not ready yet.  Slow poke')
     }
     
-    yield send(this, 'images/current.jpg');
+    yield send(this, 'images/current.jpg')
+    winston.info('Current.jpg served')
     yield next;
   } catch(err) {
     winston.error("Failed to provide a photo: " + err);
@@ -57,37 +62,28 @@ function *providePhoto(next) {
 
 function *showViewer() {
   yield this.render("viewer", {
-    title: "Test Page 2",
+    title: "Photos",
     name: "Worldy"
   });
 }
 
 function *showInfo() {
-  this.body = 'Piframe is up!'
-}
-
-function fetchNextPhoto() {
-  if(!nextFileIsBeingLoaded()) {
-    winston.info("Looks like we need a new picture");
-    flickrLoader.retrieveNextPhoto(flickrConfig);
-  } else {
-    winston.info("Next picture already being loaded.  Let's be patient.");
-  }
+  this.body = 'Piframe here! Ahoy.'
 }
 
 function nextFileIsReady() {
-  var nextNextFileExists = true;
+  var nextFileExists = true;
   try {
-    var a = fs.accessSync('images/next.jpg', fs.F_OK);
-    winston.debug('Found next_next');
+    winston.info('Checking if next file exists')
+    var a = fs.accessSync('images/next.jpg', fs.F_OK)
+    winston.info('Found next.jpg')
   } catch(err) {
-    nextNextFileExists = false;
+    winston.info('Got an error while checking for next.jpg.  Assuming it doesn\'t exist')
+    nextFileExists = false;
   }
-  
-  return nextNextFileExists;
-  
+  winston.info('nextFileExists = ' + nextFileExists)
+  return nextFileExists
 }
-
 
 function configureCouchLoggingIfPossible() {
   return new Promise((resolve, reject) => { 

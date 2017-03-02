@@ -6,26 +6,43 @@ var fs = require('fs');
 var Flickr = require("flickrapi");
 var winston;
 var chokidar = require('chokidar');
+var flickrConfig
+var watcher
 
 function supplyPhotos(flickrOptions, winstonLog) {
+  
+  flickrConfig = flickrOptions
   winston = winstonLog
   winston.info("Flickr photo loader doing it's thing")
   deletePartiallyLoadedFileIfFound();
   
-  chokidar.watch('./images/next.jpg', {
-    persistent: true
-  }).on('unlink', function(path) {
-    winston.info('Looks like next.jpg was consumed')
-    retrieveNextPhoto(flickrOptions)
-  }).on('ready', function() {
-    console.log('Tracking ./images/next.jpg');
-    if(!nextFileExists())
-      retrieveNextPhoto(flickrOptions)
+  if(!nextFileExists())
+    retrieveNextPhoto(flickrOptions).then(beReadyToFetchAnotherPhotoWhenTheNeedArises);
+  else
+    beReadyToFetchAnotherPhotoWhenTheNeedArises();
+}
+
+function beReadyToFetchAnotherPhotoWhenTheNeedArises() {
+  return new Promise(function(resolve, reject) 
+      {
+        if(watcher)
+         throw 'Badness.  Multiple watchers.'
+        watcher = chokidar.watch('./images/next.jpg', {
+        persistent: false
+      }).on('unlink', function(path) {
+        winston.info('Looks like next.jpg was consumed')
+        watcher.close()
+        watcher = null
+        retrieveNextPhoto(flickrConfig)
+      }).on('ready', function() {
+        winston.info('Tracking ./images/next.jpg for unlinking');
+        resolve();
+      })
   })
 }
 
 function retrieveNextPhoto(flickrOptions) {
-  var promise = new Promise(function(resolve, reject) {
+  return new Promise(function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
       importantStuff.flickr = flickr;
       
@@ -47,8 +64,6 @@ function retrieveNextPhoto(flickrOptions) {
       }
     });
   });
-
-  return promise;
 }
 
 function getAPicture(resolve, reject) {
@@ -82,15 +97,15 @@ function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
     winston.info("Landed on a video.  That's bad.  Let's try again.");
     getAPicture(resolve, reject);
   } else {
-    var filename = "./images/next_partial.jpg";
-    var fileStream = fs.createWriteStream(filename);
+    var fileStream = fs.createWriteStream("./images/next_partial.jpg")
     fileStream.on('finish', function () {
       winston.info("Photo acquired!");
       try {
         fs.renameSync("./images/next_partial.jpg", "./images/next.jpg")
       } catch(err) {
-        winston.info("Failed to rename next_partial to next: " + err);
+        winston.error("Failed to rename next_partial to next: " + err);
       }
+      beReadyToFetchAnotherPhotoWhenTheNeedArises()
       resolve(photoInfo);
     });
     var request = https.get(originalPhoto.source, function(response) {

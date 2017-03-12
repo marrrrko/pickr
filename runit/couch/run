@@ -1,0 +1,4 @@
+#!/bin/sh -e
+exec 2>&1
+exec chpst -u couchdb env HOME='/home/couchdb' /home/couchdb/couchdb/bin/couchdb 
+

@@ -1,0 +1,5 @@
+#!/bin/sh -e
+
+sv start piframe || exit 1
+exec 2>&1
+exec chpst -u root /etc/runit/chromex/startChromeX.sh

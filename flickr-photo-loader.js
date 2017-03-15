@@ -17,9 +17,9 @@ function supplyPhotos(flickrOptions, winstonLog) {
   deletePartiallyLoadedFileIfFound();
   
   if(!nextFileExists())
-    retrieveNextPhoto(flickrOptions).then(beReadyToFetchAnotherPhotoWhenTheNeedArises);
+    return retrieveNextPhoto(flickrOptions).then(beReadyToFetchAnotherPhotoWhenTheNeedArises);
   else
-    beReadyToFetchAnotherPhotoWhenTheNeedArises();
+    return beReadyToFetchAnotherPhotoWhenTheNeedArises();
 }
 
 function beReadyToFetchAnotherPhotoWhenTheNeedArises() {

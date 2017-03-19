@@ -1,8 +1,9 @@
 $(document).ready(function() {
   window.keepmoving = true
-  window.desiredSecondsPerPicture = 40
-  window.minimumPauseBetweenRequests = 5
+  window.desiredSecondsPerPicture = 60
+  window.minimumPauseBetweenRequests = 30 //give the server (and the cpu) a little breather
   window.timeOfLastPhotoUpdate = new Date(0)
+  sendLogToServer('info','Client starting with ' + desiredSecondsPerPicture + 's/' + minimumPauseBetweenRequests + 's delays configured')
   getNextPhoto()
 });
 
@@ -17,8 +18,8 @@ function getNextPhoto() {
           var datetime = EXIF.getTag(this, "DateTime");
           var orientation = EXIF.getTag(this, "Orientation");
           var label = EXIF.getTag(this,"Title")
-          console.log('Picture acquired in ' + Math.floor((new Date() - requestTime) / 1000) + 's.  or = ' + orientation + ' from ' + datetime);
-          
+          var msg = 'Picture acquired in ' + Math.floor((new Date() - requestTime) / 1000) + 's.  or = ' + orientation + ' from ' + datetime;
+          sendLogToServer('info',msg)
           //if(orientation == 8) {
           //  console.log("Rotating 90deg")
           //  imgNode.css("transform","rotate(90deg)");
@@ -37,9 +38,8 @@ function getNextPhoto() {
     //var now = new moment();
     //$(".top-text").text("Updated text now: " + now.format("HH:mm:ss"));
   } catch(err) {
-    console.log("Something bad happened: " + err)
-    console.log("No worries.  We'll try again shortly.")
-    setTimeout(getNextPhoto,5000)
+    sendLogToServer('error','Failed to get next photo: ' + err )
+    setTimeout(getNextPhoto,20000)
   }
 }
 
@@ -48,4 +48,14 @@ function updatePhoto(imgNode) {
   $('.image-photo').append(imgNode)
   window.timeOfLastPhotoUpdate = new Date()
   getNextPhoto();
+}
+
+function sendLogToServer(level, msg, extraInfo) {
+  try { 
+    console.log(msg)
+    $.post('log', { level: level, msg: msg, extraInfo: extraInfo }) 
+  } 
+  catch (err) {
+    console.log('Failed to log with server.  Must be down.')
+  }
 }

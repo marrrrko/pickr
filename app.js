@@ -1,6 +1,7 @@
 'use strict'
 
 var koa = require('koa')
+var bodyparser = require('koa-bodyparser')
 var app = koa()
 var route = require('koa-route')
 var serve = require('koa-static')
@@ -25,10 +26,11 @@ function startThingsUp() {
     app.use(handlebars({
       defaultLayout: "main"
     }))
-   
+    app.use(bodyparser());
     app.use(route.get('/feed', providePhoto))
     app.use(route.get('/viewer', showViewer))
     app.use(route.get('/info', showInfo))
+    app.use(route.post('/log', logClientMsg))
     
     app.use(serve('./public'))
     
@@ -75,6 +77,12 @@ function *showViewer() {
 
 function *showInfo() {
   this.body = 'Piframe here! Ahoy.'
+}
+
+function *logClientMsg() {
+  var data = this.request.body
+  //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
+  winston.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
 }
 
 function nextFileIsReady() {

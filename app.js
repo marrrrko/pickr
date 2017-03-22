@@ -46,7 +46,7 @@ function startThingsUp() {
 
 function *providePhoto(next) {
   try {
-    winston.info('A client has requested a photo.  Average cpu load is ' + os.loadavg())   
+    winston.info('A client has requested a photo.  Average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
     if(nextFileIsReady()) {
       winston.info('Looks like we have a new picture to serve')
       try {

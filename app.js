@@ -83,6 +83,7 @@ function *logClientMsg() {
   var data = this.request.body
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
   winston.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
+  this.body = data
 }
 
 function nextFileIsReady() {

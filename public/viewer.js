@@ -41,10 +41,13 @@ function getNextPhoto() {
             var label = EXIF.getTag(this,"Title")
             var msg = 'Picture acquired in ' + Math.floor((new Date() - requestTime) / 1000) + 's.  Orientation: ' + orientation + ' from ' + datetime;
             sendLogToServer('info',msg)
-            //if(orientation == 8) {
-            //  console.log("Rotating 90deg")
-            //  imgNode.css("transform","rotate(90deg)");
-            //}
+            
+            var neededRotation = 0;
+            if(orientation == 8) {
+              neededRotation = 90; 
+            } else if (orientation == 6)  {
+              neededRotation = 270;
+            }
             
             var secondsElapsedSinceLastUpdate = Math.floor((new Date() - timeOfLastPhotoUpdate) / 1000) 
             var secondsMissingToMatchDesiredWait = desiredSecondsPerPicture - secondsElapsedSinceLastUpdate
@@ -55,7 +58,7 @@ function getNextPhoto() {
               timeToWait = 0 
             
             console.log('We\'ll wait ' + timeToWait + ' seconds before switching')
-            schedulePhotoUpdate(imgNode,timeToWait * 1000, msg)
+            schedulePhotoUpdate(imgNode, neededRotation, timeToWait * 1000, msg)
         } catch(exifErr) {
           schedulePhotoLoad(20000,'Failed to parse EXIF data: ' + exifErr)
         } 
@@ -83,18 +86,22 @@ function schedulePhotoLoad(delay, errMessage)  {
 }
 
 
-function schedulePhotoUpdate(imgNode, delay, msg)  {
+function schedulePhotoUpdate(imgNode, rotation, delay, msg)  {
     
   setTimeout(
     function() {
-      updatePhoto(imgNode, msg)
+      updatePhoto(imgNode, msg, rotation)
     }, 
     delay)
 }
 
-function updatePhoto(imgNode, msg) {
+function updatePhoto(imgNode, msg, rotation) {
   toastr.clear()
   $('.image-photo').empty()
+  if(rotation && rotation != 0)  {
+    imgNode.css("transform","rotate(" + rotation + "deg)");
+    console.log('Rotated ' + rotation)
+  }
   $('.image-photo').append(imgNode)
   window.timeOfLastPhotoUpdate = new Date()
   

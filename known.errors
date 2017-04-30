@@ -1,0 +1,13 @@
+info: Looks like next.jpg was consumed
+info: Randomly selected photo #438 out of 8019 photos.
+
+  Error: write EPIPE
+      at exports._errnoException (util.js:1036:11)
+      at WriteWrap.afterWrite (net.js:794:14)
+
+info: Fetching photo titled "DSCF9741".
+info: Landed on a private photo.  That's bad.  Let's try again.
+info: Randomly selected photo #7837 out of 8019 photos.
+info: Fetching photo titled "DSC_3034".
+info: Photo acquired!
+info: Tracking ./images/next.jpg for unlinking

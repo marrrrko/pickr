@@ -13,7 +13,7 @@ toastr.options = {
   "debug": false,
   "newestOnTop": false,
   "progressBar": false,
-  "positionClass": "toast-top-center",
+  "positionClass": "toast-bottom-left",
   "preventDuplicates": false,
   "onclick": null,
   "showEasing": "swing",
@@ -39,14 +39,14 @@ function getNextPhoto() {
             var datetime = EXIF.getTag(this, "DateTime");
             var orientation = EXIF.getTag(this, "Orientation");
             var label = EXIF.getTag(this,"Title")
-            var msg = 'Picture acquired in ' + Math.floor((new Date() - requestTime) / 1000) + 's.  Orientation: ' + orientation + ' from ' + datetime;
+            var msg = (new Date()).toLocaleTimeString() + ': picture acquired in ' + Math.floor((new Date() - requestTime) / 1000) + 's.  Orientation: ' + orientation + ' from ' + datetime;
             sendLogToServer('info',msg)
             
             var neededRotation = 0;
             if(orientation == 8) {
-              neededRotation = 90; 
+              neededRotation = 270; 
             } else if (orientation == 6)  {
-              neededRotation = 270;
+              neededRotation = 90;
             }
             
             var secondsElapsedSinceLastUpdate = Math.floor((new Date() - timeOfLastPhotoUpdate) / 1000) 

@@ -11,3 +11,23 @@ info: Randomly selected photo #7837 out of 8019 photos.
 info: Fetching photo titled "DSC_3034".
 info: Photo acquired!
 info: Tracking ./images/next.jpg for unlinking
+
+
+
+=====================
+
+info: Randomly selected photo #7329 out of 8019 photos.
+info: Fetching photo titled "P1000063".
+events.js:160
+      throw er; // Unhandled 'error' event
+      ^
+
+Error: socket hang up
+    at createHangUpError (_http_client.js:252:15)
+    at TLSSocket.socketOnEnd (_http_client.js:344:23)
+    at emitNone (events.js:91:20)
+    at TLSSocket.emit (events.js:185:7)
+    at endReadableNT (_stream_readable.js:974:12)
+    at _combinedTickCallback (internal/process/next_tick.js:74:11)
+    at process._tickCallback (internal/process/next_tick.js:98:9)
+[nodemon] app crashed - waiting for file changes before starting...

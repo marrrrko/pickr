@@ -13,16 +13,16 @@ var fs = require('fs')
 var winston = require('winston')
 var http = require('http')
 var os = require('os')
-winston.add(winston.transports.File, { filename: 'piframe.log' })
+winston.add(winston.transports.File, { name: 'normal', filename: 'frame.log' })
+winston.add(winston.transports.File, { name: 'errors', filename: 'errors.log',level: 'error' })
 
-configureCouchLoggingIfPossible().then(startThingsUp)
+//configureCouchLoggingIfPossible().then(startThingsUp)
+startThingsUp();
 
 function startThingsUp() {
   return new Promise((resolve, reject) => {
     winston.info("Getting things ready...")
     
-    
-   
     app.use(handlebars({
       defaultLayout: "main"
     }))
@@ -41,12 +41,14 @@ function startThingsUp() {
       port = 8080
     
     app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port)})
+    winston.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
   })
 }
 
 function *providePhoto(next) {
   try {
-    winston.info('A client has requested a photo.  Average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
+    winston.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
+    winston.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     if(nextFileIsReady()) {
       winston.info('Looks like we have a new picture to serve')
       try {

@@ -17,23 +17,27 @@ function supplyPhotos(flickrOptions, winstonLog) {
   deletePartiallyLoadedFileIfFound();
   
   if(!nextFileExists())
-    return retrieveNextPhoto(flickrOptions).then(beReadyToFetchAnotherPhotoWhenTheNeedArises);
+    return retrieveNextPhoto(flickrOptions).then(beReadyToFetchAnotherPhotoWhenTheNeedArises).catch(function(err) {
+          winston.error('Something bad happened while talking to flickr', err)
+        });
   else
-    return beReadyToFetchAnotherPhotoWhenTheNeedArises();
+    return beReadyToFetchAnotherPhotoWhenTheNeedArises().catch(function(err) {
+          winston.error('Something bad happened while talking to flickr', err)
+        });;
 }
 
 function beReadyToFetchAnotherPhotoWhenTheNeedArises() {
   return new Promise(function(resolve, reject) 
       {
         if(watcher)
-         throw 'Badness.  Multiple watchers.'
+         reject('Badness.  Multiple watchers.')
         watcher = chokidar.watch('./images/next.jpg', {
         persistent: false
       }).on('unlink', function(path) {
         winston.info('Looks like next.jpg was consumed')
         watcher.close()
         watcher = null
-        retrieveNextPhoto(flickrConfig)
+        resolve(retrieveNextPhoto(flickrConfig))
       }).on('ready', function() {
         winston.info('Tracking ./images/next.jpg for unlinking');
         resolve();
@@ -41,77 +45,92 @@ function beReadyToFetchAnotherPhotoWhenTheNeedArises() {
   })
 }
 
-function retrieveNextPhoto(flickrOptions) {
+function retrieveNextPhoto(flickrOptions, user) {
   return new Promise(function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
-      importantStuff.flickr = flickr;
-      
-      var mode = 'mine';
-      if(Math.random() < 0.5 && false)
-        mode = 'aris'
-      
-      if(mode == 'mine' ) {
-        flickr.photos.getCounts({ dates:[0,new Date().getTime()]}, function(err, result) {
-          importantStuff.totalNumberOfPhotos = result.photocounts.photocount[0].count;
-          getAPicture(resolve, reject);
-        });
-      } else {
-        flickr.photos.search({ dates:[0,new Date().getTime()]}, function(err, result) {
-          importantStuff.totalNumberOfPhotos = result.photocounts.photocount[0].count;
-          getAPicture(resolve, reject);
-        });
+
+      flickr.people.getPhotos({ user_id: flickrOptions.users[0], authenticated: true, privacy_filter: 4, per_page: 1}, function(err, result) {
+        if(err)
+          reject(err);
+        importantStuff.totalNumberOfPhotos = result.photos.total;
+        resolve(getAPicture(flickr))
+      });
         
-      }
+      
     });
   });
 }
 
-function getAPicture(resolve, reject) {
+function getAPicture(flickr) {
+  return new Promise(function(resolve, reject) {
     var randomPhotoNumber = Math.floor(Math.random() * importantStuff.totalNumberOfPhotos);
     winston.info('Randomly selected photo #' + randomPhotoNumber + ' out of ' + importantStuff.totalNumberOfPhotos + ' photos.')
-    importantStuff.flickr.photos.search({
-      user_id: importantStuff.flickr.options.user_id,
-      authenticated: true,
-      per_page: 1,
-      page: randomPhotoNumber
-    }, function(err, searchResult) { handleSearchResult(err, searchResult, resolve, reject); });
+    try{ 
+      var user = flickr.options.user_id;
+      if(flickr.options.users.length)
+        user = flickr.options.users[0];
+        
+      flickr.photos.search({
+        user_id: user,
+        authenticated: true,
+        per_page: 1,
+        page: randomPhotoNumber
+      }, function(err, searchResult) { 
+        resolve(handleSearchResult(err, searchResult, flickr)); 
+      });
+    } catch (err)  {
+      winston.error('Failed to flickr search', err)
+      reject(err)
+    }
+  })
 }
 
-function handleSearchResult(err, searchResult, resolve, reject) {
-  winston.info("Fetching photo titled \"" + searchResult.photos.photo[0].title + "\".");
-  if(searchResult.photos.photo[0].ispublic || searchResult.photos.photo[0].isfamily || searchResult.photos.photo[0].isfriend) {
-    importantStuff.flickr.photos.getSizes({
-      user_id: importantStuff.flickr.options.user_id,
-      authenticated: true,
-      photo_id: searchResult.photos.photo[0].id
-    }, function(err, sizesResult) { handleGetSizesResult(err,sizesResult,searchResult.photos.photo[0], resolve, reject); });
-  } else {
-    winston.info("Landed on a private photo.  That's bad.  Let's try again.");
-    getAPicture(resolve, reject);
-  }
-}
-
-function handleGetSizesResult(err,result, photoInfo, resolve, reject) {
-  var originalPhoto = _.findWhere(result.sizes.size, { label: "Original"});
-  if(originalPhoto.media != "photo") {
-    winston.info("Landed on a video.  That's bad.  Let's try again.");
-    getAPicture(resolve, reject);
-  } else {
-    var fileStream = fs.createWriteStream("./images/next_partial.jpg")
-    fileStream.on('finish', function () {
-      winston.info("Photo acquired!");
+function handleSearchResult(err, searchResult, flickr) {
+  return new Promise(function(resolve, reject) {
+    winston.info("Fetching photo titled \"" + searchResult.photos.photo[0].title + "\".");
+    if(searchResult.photos.photo[0].ispublic || searchResult.photos.photo[0].isfamily || searchResult.photos.photo[0].isfriend) {
       try {
-        fs.renameSync("./images/next_partial.jpg", "./images/next.jpg")
-      } catch(err) {
-        winston.error("Failed to rename next_partial to next: " + err);
+        flickr.photos.getSizes({
+          user_id: flickr.options.user_id,
+          authenticated: true,
+          photo_id: searchResult.photos.photo[0].id
+        }, function(err, sizesResult) { 
+          resolve(handleGetSizesResult(err,sizesResult,searchResult.photos.photo[0], flickr)); 
+          
+        });
+      } catch (err)  {
+        winston.error('Failed to flicke getSizes', err)
+        reject(err)
       }
-      beReadyToFetchAnotherPhotoWhenTheNeedArises()
-      resolve(photoInfo);
-    });
-    var request = https.get(originalPhoto.source, function(response) {
-      response.pipe(fileStream);
-    });
-  }
+    } else {
+      winston.info("Landed on a private photo.  That's bad.  Let's try again.");
+      resolve(getAPicture(flickr));
+    }
+  })
+}
+
+function handleGetSizesResult(err,result, photoInfo, flickr) {
+  return new Promise(function(resolve, reject) {
+    var originalPhoto = _.findWhere(result.sizes.size, { label: "Original"});
+      if(originalPhoto.media != "photo") {
+        winston.info("Landed on a video.  That's bad.  Let's try again.");
+        resolve(getAPicture());
+      } else {
+        var fileStream = fs.createWriteStream("./images/next_partial.jpg")
+        fileStream.on('finish', function () {
+          winston.info("Photo acquired!");
+          try {
+            fs.renameSync("./images/next_partial.jpg", "./images/next.jpg")
+          } catch(err) {
+            winston.error("Failed to rename next_partial to next: " + err);
+          }
+          beReadyToFetchAnotherPhotoWhenTheNeedArises().then(resolve(photoInfo));
+        });
+        var request = https.get(originalPhoto.source, function(response) {
+          response.pipe(fileStream);
+        });
+      }
+  })
 }
 
 function nextFileExists() {

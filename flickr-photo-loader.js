@@ -1,6 +1,6 @@
 
 var importantStuff = {};
-var _ = require("underscore");
+var _ = require("lodash");
 var https = require('https');
 var fs = require('fs');
 var Flickr = require("flickrapi");

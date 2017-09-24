@@ -2,7 +2,7 @@
 
 var koa = require('koa')
 var bodyparser = require('koa-bodyparser')
-var app = koa()
+var app = new koa()
 var route = require('koa-route')
 var serve = require('koa-static')
 var handlebars = require('koa-handlebars')
@@ -16,7 +16,6 @@ var os = require('os')
 winston.add(winston.transports.File, { name: 'normal', filename: 'frame.log' })
 winston.add(winston.transports.File, { name: 'errors', filename: 'errors.log',level: 'error' })
 
-//configureCouchLoggingIfPossible().then(startThingsUp)
 startThingsUp();
 
 function startThingsUp() {
@@ -45,7 +44,7 @@ function startThingsUp() {
   })
 }
 
-function *providePhoto(next) {
+async function providePhoto(ctx, next) {
   try {
     winston.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
     winston.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
@@ -61,34 +60,34 @@ function *providePhoto(next) {
       winston.warn('Looks like next file is not ready yet.  Slow poke')
     }
     
-    yield send(this, 'images/current.jpg')
+    await send(this, 'images/current.jpg')
     winston.info('Current.jpg served')
-    yield next
+    await next
   } catch(err) {
     winston.error("Failed to provide a photo: " + err)
-    yield next
+    await next
   }
 }
 
-function *showViewer() {
-  yield this.render("viewer", {
+async function showViewer(ctx, next) {
+  await this.render("viewer", {
     title: "Photos",
     name: "Worldy"
   })
 }
 
-function *showInfo() {
+async function showInfo(ctx, next) {
   this.body = 'Piframe here! Ahoy.'
 }
 
-function *logClientMsg() {
+async function logClientMsg(ctx, next) {
   var data = this.request.body
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
   winston.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
   this.body = data
 }
 
-function nextFileIsReady() {
+function nextFileIsReady(ctx, next) {
   var nextFileExists = true
   try {
     winston.info('Checking if next file exists')
@@ -100,28 +99,4 @@ function nextFileIsReady() {
   }
   winston.info('nextFileExists = ' + nextFileExists)
   return nextFileExists
-}
-
-function configureCouchLoggingIfPossible() {
-  return new Promise((resolve, reject) => { 
-    var options = {
-      host: 'localhost',
-      port: 5984,
-      path: '/'
-    }
-    
-    http.get(options, function(resp){
-      resp.on('data', function(chunk){
-        var winstonCouch = require('winston-couchdb').Couchdb
-        winston.add(winstonCouch, {
-          auth: {username: 'admin', password: 'piframe'}
-        })
-        winston.info("Couch logging activamated.")
-        resolve()
-      })
-    }).on("error", function(e){
-      winston.info("Couch didn't seem available so no couch logging")
-      resolve()
-    })
-  })
 }

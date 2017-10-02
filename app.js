@@ -3,45 +3,52 @@
 var koa = require('koa')
 var bodyparser = require('koa-bodyparser')
 var app = new koa()
-var route = require('koa-route')
+var routing = require('koa-router')
 var serve = require('koa-static')
 var handlebars = require('koa-handlebars')
 var send = require('koa-send')
 var flickrLoader = require('./flickr-photo-loader')
-var flickrConfig = require('./flickr-config')
+var config = require('config')
 var fs = require('fs')
 var winston = require('winston')
 var http = require('http')
 var os = require('os')
+
 winston.add(winston.transports.File, { name: 'normal', filename: 'frame.log' })
 winston.add(winston.transports.File, { name: 'errors', filename: 'errors.log',level: 'error' })
 
 startThingsUp();
 
 function startThingsUp() {
-  return new Promise((resolve, reject) => {
     winston.info("Getting things ready...")
     
-    app.use(handlebars({
-      defaultLayout: "main"
-    }))
+    let router = setupRouting();
+    app.use(handlebars({ defaultLayout: 'main' }));
     app.use(bodyparser());
-    app.use(route.get('/feed', providePhoto))
-    app.use(route.get('/viewer', showViewer))
-    app.use(route.get('/info', showInfo))
-    app.use(route.post('/log', logClientMsg))
-    
     app.use(serve('./public'))
+    app.use(router.routes())
     
-    flickrLoader.supplyPhotos(flickrConfig,winston).catch(e => winston.error('Photo supply failed', e))
+    
     
     var port = process.env.PORT
     if(!port)
       port = 8080
-    
+
     app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port)})
     winston.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-  })
+    getAPhoto();
+}
+
+function getAPhoto() {
+  let aPhoto = undefined;
+  flickrLoader
+    .getAGoodPhoto(winston)
+    .then(function(photo) { 
+      aPhoto = photo; 
+      console.log('GOT IT!!!')
+    }).catch(err => {
+      winston.err(err);
+    });
 }
 
 async function providePhoto(ctx, next) {
@@ -60,7 +67,7 @@ async function providePhoto(ctx, next) {
       winston.warn('Looks like next file is not ready yet.  Slow poke')
     }
     
-    await send(this, 'images/current.jpg')
+    await send(ctx, 'images/current.jpg')
     winston.info('Current.jpg served')
     await next
   } catch(err) {
@@ -69,22 +76,38 @@ async function providePhoto(ctx, next) {
   }
 }
 
-async function showViewer(ctx, next) {
-  await this.render("viewer", {
+function setupRouting() {
+    let routerSettings = {}
+    var prefix = config.get('prefix')
+    if(prefix)
+        routerSettings = { prefix: prefix }
+
+    let router = new routing(routerSettings)
+    router.get('/feed', providePhoto)
+    router.get('/viewer', showViewer)
+    router.get('/info', showInfo)
+    router.post('/log', logClientMsg)
+    
+    return router;
+}
+
+async function showViewer(ctx) {
+  winston.info('Viewer request')
+  await ctx.render("viewer", {
     title: "Photos",
-    name: "Worldy"
+    name: "Slartibartfast"
   })
 }
 
 async function showInfo(ctx, next) {
-  this.body = 'Piframe here! Ahoy.'
+  ctx.body = 'Piframe here! Ahoy.'
 }
 
 async function logClientMsg(ctx, next) {
-  var data = this.request.body
+  var data = ctx.request.body
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
   winston.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
-  this.body = data
+  ctx.body = data
 }
 
 function nextFileIsReady(ctx, next) {
@@ -94,7 +117,7 @@ function nextFileIsReady(ctx, next) {
     var a = fs.accessSync('images/next.jpg', fs.F_OK)
     winston.info('Found next.jpg')
   } catch(err) {
-    winston.info('Got an error while checking for next.jpg.  Assuming it doesn\'t exist')
+    winston.info('Got an error while checking for next.jpg (' + JSON.stringify(err) + ').  Assuming it doesn\'t exist')
     nextFileExists = false
   }
   winston.info('nextFileExists = ' + nextFileExists)

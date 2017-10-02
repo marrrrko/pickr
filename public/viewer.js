@@ -1,7 +1,7 @@
 $(document).ready(function() {
   window.keepmoving = true
-  window.desiredSecondsPerPicture = 60
-  window.minimumPauseBetweenRequests = 30 //give the server (and the cpu) a little breather
+  window.desiredSecondsPerPicture = 10
+  window.minimumPauseBetweenRequests = 10 //give the server (and the cpu) a little breather
   window.timeOfLastPhotoUpdate = new Date(0)
   sendLogToServer('info','Client starting with ' + desiredSecondsPerPicture + 's/' + minimumPauseBetweenRequests + 's delays configured')
   getNextPhoto()

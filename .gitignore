@@ -1,4 +1,6 @@
-flickr-config.js
+
+# Local config files
+config/local.json
 
 # Logs
 logs

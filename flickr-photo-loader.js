@@ -1,82 +1,84 @@
-
-var importantStuff = {};
-var _ = require("lodash");
-var https = require('https');
-var fs = require('fs');
-var Flickr = require("flickrapi");
+const _ = require("lodash");
+const axios = require('axios');
+const Flickr = require("flickrapi");
 var winston;
-var chokidar = require('chokidar');
-var flickrConfig
+const config = require('config');
 var watcher
+const flickrOptions = {
+      api_key: config.get('api_key'),
+      secret: config.get('secret'),
+      user_id: config.get('user_id'),
+      access_token: config.get('access_token'),
+      access_token_secret: config.get('access_token_secret')
+    };
 
-function supplyPhotos(flickrOptions, winstonLog) {
-  
-  flickrConfig = flickrOptions
-  winston = winstonLog
-  winston.info("Flickr photo loader doing it's thing")
-  deletePartiallyLoadedFileIfFound();
-  
-  if(!nextFileExists())
-    return retrieveNextPhoto(flickrOptions).then(beReadyToFetchAnotherPhotoWhenTheNeedArises).catch(function(err) {
-          winston.error('Something bad happened while talking to flickr', err)
-        });
-  else
-    return beReadyToFetchAnotherPhotoWhenTheNeedArises().catch(function(err) {
-          winston.error('Something bad happened while talking to flickr', err)
-        });;
+module.exports = { getAGoodPhoto: getAGoodPhoto }
+
+async function getAGoodPhoto(winstonLogger) {
+  winston = winstonLogger;
+  return new Promise(async function(resolve, reject) {
+    let flickrConnection = await getFlickrConnection();
+    let userId = config.get('users')[0];
+    let totatNumberOfPhotos = await getTotalNumberOfPhotos(flickrConnection, userId);
+    let aGoodPictureData = undefined;
+    let aGoodPictureBits = undefined;
+    while (aGoodPictureData == undefined) {
+      let aRandomPictureData = await getARandomPictureData(flickrConnection, userId, totatNumberOfPhotos)
+      let aRandomPictureSizes = await getPictureAvailableSizes(flickrConnection, aRandomPictureData, userId)
+      var aRandomPictureOriginalSize = _.find(aRandomPictureSizes.sizes.size, { label: "Original"});
+      if (await pictureDataIsGood(aRandomPictureData, aRandomPictureOriginalSize)) {
+        aGoodPictureData = aRandomPictureData;
+        aGoodPictureBits = await getPictureBits(aRandomPictureOriginalSize.source);
+      }
+      else {
+        winston.info('Picture ' + aRandomPictureData.photos.photo[0].title + ' is not good.  Trying another.')
+      }
+    }
+
+    winston.info('Got good picture with data: ' + JSON.stringify(aGoodPictureData));
+    winston.info('Picture bits length = ' + aGoodPictureBits.length);
+
+    resolve({ photoInfo: aGoodPictureData, photoBits: aGoodPictureBits});
+
+  });
 }
 
-function beReadyToFetchAnotherPhotoWhenTheNeedArises() {
-  return new Promise(function(resolve, reject) 
-      {
-        if(watcher)
-         reject('Badness.  Multiple watchers.')
-        watcher = chokidar.watch('./images/next.jpg', {
-        persistent: false
-      }).on('unlink', function(path) {
-        winston.info('Looks like next.jpg was consumed')
-        watcher.close()
-        watcher = null
-        resolve(retrieveNextPhoto(flickrConfig))
-      }).on('ready', function() {
-        winston.info('Tracking ./images/next.jpg for unlinking');
-        resolve();
-      })
-  })
-}
-
-function retrieveNextPhoto(flickrOptions, user) {
-  return new Promise(function(resolve, reject) {
+async function getFlickrConnection() {
+  return new Promise(async function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
-
-      flickr.people.getPhotos({ user_id: flickrOptions.users[0], authenticated: true, privacy_filter: 4, per_page: 1}, function(err, result) {
-        if(err)
-          reject(err);
-        importantStuff.totalNumberOfPhotos = result.photos.total;
-        resolve(getAPicture(flickr))
-      });
-        
-      
+      if(error)
+        reject(error)
+      else
+        resolve(flickr)
     });
   });
 }
 
-function getAPicture(flickr) {
-  return new Promise(function(resolve, reject) {
-    var randomPhotoNumber = Math.floor(Math.random() * importantStuff.totalNumberOfPhotos);
-    winston.info('Randomly selected photo #' + randomPhotoNumber + ' out of ' + importantStuff.totalNumberOfPhotos + ' photos.')
+async function getTotalNumberOfPhotos(flickrConnection, userId) {
+  return new Promise(async function(resolve, reject) {    
+      flickrConnection.people.getPhotos({ user_id: userId, authenticated: true, privacy_filter: 4, per_page: 1}, function(err, result) {
+        if(err)
+          reject(err);
+        else
+          resolve(result.photos.total);
+      });
+  });
+}
+
+async function getARandomPictureData(flickrConnection, userId, totatNumberOfPhotos) {
+  return new Promise(async function(resolve, reject) {
+    var randomPhotoNumber = Math.floor(Math.random() * totatNumberOfPhotos);    
     try{ 
-      var user = flickr.options.user_id;
-      if(flickr.options.users.length)
-        user = flickr.options.users[0];
+      //if(flickr.options && flickr.options.users && flickr.options.users.length)
+      //  user = flickr.options.users[0];
         
-      flickr.photos.search({
-        user_id: user,
+      flickrConnection.photos.search({
+        user_id: userId,
         authenticated: true,
         per_page: 1,
         page: randomPhotoNumber
       }, function(err, searchResult) { 
-        resolve(handleSearchResult(err, searchResult, flickr)); 
+        resolve(searchResult); 
       });
     } catch (err)  {
       winston.error('Failed to flickr search', err)
@@ -85,81 +87,36 @@ function getAPicture(flickr) {
   })
 }
 
-function handleSearchResult(err, searchResult, flickr) {
-  return new Promise(function(resolve, reject) {
-    winston.info("Fetching photo titled \"" + searchResult.photos.photo[0].title + "\".");
-    if(searchResult.photos.photo[0].ispublic || searchResult.photos.photo[0].isfamily || searchResult.photos.photo[0].isfriend) {
-      try {
-        flickr.photos.getSizes({
-          user_id: flickr.options.user_id,
-          authenticated: true,
-          photo_id: searchResult.photos.photo[0].id
-        }, function(err, sizesResult) { 
-          resolve(handleGetSizesResult(err,sizesResult,searchResult.photos.photo[0], flickr)); 
-          
-        });
-      } catch (err)  {
-        winston.error('Failed to flicke getSizes', err)
-        reject(err)
-      }
+async function getPictureAvailableSizes(flickrConnection, flickrPhotoSearchResult, userId) {
+  return new Promise(async function(resolve, reject) {
+    flickrConnection.photos.getSizes({
+      user_id: userId,
+      authenticated: true,
+      photo_id: flickrPhotoSearchResult.photos.photo[0].id
+    }, function(err, availableSizes) { 
+        if(err)
+          reject(err);
+        else
+          resolve(availableSizes);
+    });
+  });
+}
+
+async function pictureDataIsGood(flickrPhotoSearchResult, originalPhotoData) {
+  return new Promise(async function(resolve, reject) {
+    let photoIsGood = flickrPhotoSearchResult.photos.photo[0].ispublic || flickrPhotoSearchResult.photos.photo[0].isfamily || flickrPhotoSearchResult.photos.photo[0].isfriend;
+    photoIsGood = photoIsGood && originalPhotoData.media == "photo";
+    if(photoIsGood) {
+      resolve(true)
     } else {
-      winston.info("Landed on a private photo.  That's bad.  Let's try again.");
-      resolve(getAPicture(flickr));
+      resolve(false);
     }
   })
 }
 
-function handleGetSizesResult(err,result, photoInfo, flickr) {
-  return new Promise(function(resolve, reject) {
-    var originalPhoto = _.findWhere(result.sizes.size, { label: "Original"});
-      if(originalPhoto.media != "photo") {
-        winston.info("Landed on a video.  That's bad.  Let's try again.");
-        resolve(getAPicture());
-      } else {
-        var fileStream = fs.createWriteStream("./images/next_partial.jpg")
-        fileStream.on('finish', function () {
-          winston.info("Photo acquired!");
-          try {
-            fs.renameSync("./images/next_partial.jpg", "./images/next.jpg")
-          } catch(err) {
-            winston.error("Failed to rename next_partial to next: " + err);
-          }
-          beReadyToFetchAnotherPhotoWhenTheNeedArises().then(resolve(photoInfo));
-        });
-        var request = https.get(originalPhoto.source, function(response) {
-          response.pipe(fileStream);
-        });
-      }
-  })
+async function getPictureBits(url) {
+  return new Promise(async function(resolve, reject) {
+    var response = await axios.get(url, { responseType:"blob" });
+    resolve(response.data);
+  });
 }
-
-function nextFileExists() {
-  var nextFileExists = true;
-  try {
-    var a = fs.accessSync('./images/next.jpg', fs.F_OK);
-    winston.info('Found next');
-  } catch(err) {
-    nextFileExists = false;
-    winston.info('Didn\'t find next.');
-  }
-  
-  return nextFileExists;
-}
-
-function deletePartiallyLoadedFileIfFound() {
-  var partialFileExists = true;
-  try {
-    var a = fs.accessSync('./images/next_partial.jpg', fs.F_OK);
-    winston.info('Found next_partial');
-  } catch(err) {
-    partialFileExists = false;
-    winston.info('Didn\'t find next_partial.  Clean clean.');
-  }
-  
-  if(partialFileExists) {
-    fs.unlinkSync('./images/next_partial.jpg');
-  }
-}
-
-module.exports.retrieveNextPhoto = retrieveNextPhoto
-module.exports.supplyPhotos = supplyPhotos

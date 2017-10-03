@@ -18,7 +18,10 @@ async function getAGoodPhoto(winstonLogger) {
   winston = winstonLogger;
   return new Promise(async function(resolve, reject) {
     let flickrConnection = await getFlickrConnection();
-    let userId = config.get('users')[0];
+    let userids = config.get('users');
+
+    let userId = userids[_.random(0, userids.length - 1, false)];
+    
     let totatNumberOfPhotos = await getTotalNumberOfPhotos(flickrConnection, userId);
     let aGoodPictureData = undefined;
     let aGoodPictureBits = undefined;

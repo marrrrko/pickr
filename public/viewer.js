@@ -1,6 +1,6 @@
 $(document).ready(function() {
   window.keepmoving = true
-  window.desiredSecondsPerPicture = 10
+  window.desiredSecondsPerPicture = 60
   window.minimumPauseBetweenRequests = 10 //give the server (and the cpu) a little breather
   window.timeOfLastPhotoUpdate = new Date(0)
   sendLogToServer('info','Client starting with ' + desiredSecondsPerPicture + 's/' + minimumPauseBetweenRequests + 's delays configured')
@@ -32,8 +32,8 @@ function getNextPhoto() {
     var requestTime = new Date()
     imgNode.prop("src","feed?" + requestTime.getTime())
     console.log('Getting a picture.')
-    imgNode.on('load',function() {
-      window.lastLoadData = this
+    imgNode.on('load',function(x,y,z) {
+      window.lastLoadData = { a: this, x: x, y: y, z: z };
       EXIF.getData(this, function() {
         try {
             var datetime = EXIF.getTag(this, "DateTime");

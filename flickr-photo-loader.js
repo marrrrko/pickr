@@ -35,10 +35,9 @@ async function getAGoodPhoto(winstonLogger) {
       }
     }
 
-    winston.info('Got good picture with data: ' + JSON.stringify(aGoodPictureData));
-    winston.info('Picture bits length = ' + aGoodPictureBits.length);
+    winston.info('Good picture obtained: ' + JSON.stringify(aGoodPictureData));    
 
-    resolve({ photoInfo: aGoodPictureData, photoBits: aGoodPictureBits});
+    resolve({ photoInfo: aGoodPictureData, photoBitsBuffer: aGoodPictureBits});
 
   });
 }
@@ -116,7 +115,8 @@ async function pictureDataIsGood(flickrPhotoSearchResult, originalPhotoData) {
 
 async function getPictureBits(url) {
   return new Promise(async function(resolve, reject) {
-    var response = await axios.get(url, { responseType:"blob" });
-    resolve(response.data);
+    var response = await axios.get(url, { responseType: "arraybuffer" });
+    var imageData = new Buffer(response.data, 'binary')
+    resolve(imageData);
   });
 }

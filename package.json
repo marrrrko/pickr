@@ -24,9 +24,11 @@
   },
   "homepage": "https://github.com/SrGrieves/rasberry-node-frame#readme",
   "dependencies": {
-    "axios": "^0.16.2",
+    "base64-arraybuffer": "^0.1.5",
     "config": "^1.26.2",
+    "exif-parser": "^0.1.12",
     "flickrapi": "^0.6.0",
+    "got": "^7.1.0",
     "koa": "^2.3.0",
     "koa-bodyparser": "^4.2.0",
     "koa-handlebars": "^2.0.0",
@@ -34,7 +36,6 @@
     "koa-send": "^4.1.0",
     "koa-static": "^4.0.1",
     "lodash": "^4.17.4",
-    "piexifjs": "^1.0.3",
     "winston": "^2.3.1"
   }
 }

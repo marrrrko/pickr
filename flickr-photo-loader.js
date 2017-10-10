@@ -1,7 +1,9 @@
 const _ = require("lodash");
-const axios = require('axios');
+const got = require('got');
 const Flickr = require("flickrapi");
-var winston;
+const b64 = require('base64-arraybuffer');
+const exifparser = require('exif-parser');
+var logger;
 const config = require('config');
 var watcher
 const flickrOptions = {
@@ -14,34 +16,45 @@ const flickrOptions = {
 
 module.exports = { getAGoodPhoto: getAGoodPhoto }
 
-async function getAGoodPhoto(winstonLogger) {
-  winston = winstonLogger;
+async function getAGoodPhoto(winston) {
+  logger = winston;
   return new Promise(async function(resolve, reject) {
-    let flickrConnection = await getFlickrConnection();
-    let userids = config.get('users');
+    try  {
+      let flickrConnection = await getFlickrConnection();
+      let userids = config.get('users');
 
-    let userId = userids[_.random(0, userids.length - 1, false)];
-    
-    let totatNumberOfPhotos = await getTotalNumberOfPhotos(flickrConnection, userId);
-    let aGoodPictureData = undefined;
-    let aGoodPictureBits = undefined;
-    while (aGoodPictureData == undefined) {
-      let aRandomPictureData = await getARandomPictureData(flickrConnection, userId, totatNumberOfPhotos)
-      let aRandomPictureSizes = await getPictureAvailableSizes(flickrConnection, aRandomPictureData, userId)
-      var aRandomPictureOriginalSize = _.find(aRandomPictureSizes.sizes.size, { label: "Original"});
-      if (await pictureDataIsGood(aRandomPictureData, aRandomPictureOriginalSize)) {
-        aGoodPictureData = aRandomPictureData;
-        aGoodPictureBits = await getPictureBits(aRandomPictureOriginalSize.source);
+      let userId = userids[_.random(0, userids.length - 1, false)];
+      
+      let totatNumberOfPhotos = await getTotalNumberOfPhotos(flickrConnection, userId);
+      let aGoodPictureData = undefined;
+      let aGoodPictureBits = undefined;
+      let aGoodPictureExif = undefined;
+      while (aGoodPictureData == undefined) {
+        let aRandomPictureData = await getARandomPictureData(flickrConnection, userId, totatNumberOfPhotos)
+        let aRandomPictureSizes = await getPictureAvailableSizes(flickrConnection, aRandomPictureData, userId)
+        var aRandomPictureOriginalSize = _.find(aRandomPictureSizes.sizes.size, { label: "Original"});
+        if (await pictureDataIsGood(aRandomPictureData, aRandomPictureOriginalSize)) {
+          aGoodPictureData = aRandomPictureData;
+          aGoodPictureBits = await getPictureBits(aRandomPictureOriginalSize.source);
+          logger.info('T = AB ' + (aGoodPictureBits instanceof Buffer));
+          aGoodPictureExif = await getPictureExif(aGoodPictureBits);
+        }
+        else {
+          logger.info('Picture ' + aRandomPictureData.photos.photo[0].title + ' is not good.  Trying another.')
+        }
       }
-      else {
-        winston.info('Picture ' + aRandomPictureData.photos.photo[0].title + ' is not good.  Trying another.')
-      }
+
+      logger.info('Good picture obtained: ' + JSON.stringify(aGoodPictureData) + '(' + aGoodPictureBits.length + ')');    
+
+      resolve(
+        { 
+          photoInfo: aGoodPictureData, 
+          photoExif: aGoodPictureExif,
+          photoData: b64.encode(aGoodPictureBits)
+        });
+    } catch (err) {
+      reject(err);
     }
-
-    winston.info('Good picture obtained: ' + JSON.stringify(aGoodPictureData));    
-
-    resolve({ photoInfo: aGoodPictureData, photoBitsBuffer: aGoodPictureBits});
-
   });
 }
 
@@ -83,7 +96,7 @@ async function getARandomPictureData(flickrConnection, userId, totatNumberOfPhot
         resolve(searchResult); 
       });
     } catch (err)  {
-      winston.error('Failed to flickr search', err)
+      logger.error('Failed to flickr search', err)
       reject(err)
     }
   })
@@ -118,8 +131,21 @@ async function pictureDataIsGood(flickrPhotoSearchResult, originalPhotoData) {
 
 async function getPictureBits(url) {
   return new Promise(async function(resolve, reject) {
-    var response = await axios.get(url, { responseType: "arraybuffer" });
-    var imageData = new Buffer(response.data, 'binary')
-    resolve(imageData);
+    logger.info('Fetching ' + url);
+    var response = await got(url, { encoding: null });
+    logger.debug('Got response ' + response.body.length);
+    resolve(response.body);
+  });
+}
+
+function getPictureExif(pictureData) {
+  return new Promise(async function(resolve, reject) {
+    try {
+      var parser = exifparser.create(pictureData);
+      var result = parser.parse();
+      resolve(result);
+    } catch (error) {
+        console.log('Error: ' + error.message);
+    }
   });
 }

@@ -10,21 +10,20 @@ const send = require('koa-send')
 const flickrLoader = require('./flickr-photo-loader')
 const config = require('config')
 const fs = require('fs')
-const winston = require('winston')
+const logger = require('winston')
 const http = require('http')
 const os = require('os')
-const piexif = require("piexifjs");
 
 var currentPhoto = undefined;
 var nextPhoto = undefined;
 
-winston.add(winston.transports.File, { name: 'normal', filename: 'frame.log' })
-winston.add(winston.transports.File, { name: 'errors', filename: 'errors.log',level: 'error' })
+logger.add(logger.transports.File, { name: 'normal', filename: 'frame.log' })
+logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'error' })
 
 startThingsUp();
 
 function startThingsUp() {
-    winston.info("Getting things ready...")
+    logger.info("Getting things ready...")
     
     let router = setupRouting();
     app.use(handlebars({ defaultLayout: 'main' }));
@@ -36,8 +35,8 @@ function startThingsUp() {
     if(!port)
       port = 8080
 
-    app.listen(port,null,null,function() { winston.info('Process #' + process.pid + ' started sharing photos on port ' + port)})
-    winston.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
+    app.listen(port,null,null,function() { logger.info('Process #' + process.pid + ' started sharing photos on port ' + port)})
+    logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     getNextPhoto();
 }
 
@@ -46,17 +45,13 @@ async function getNextPhoto() {
     if(nextPhoto !== "fetching") {
       nextPhoto = "fetching";
       flickrLoader
-        .getAGoodPhoto(winston)
+        .getAGoodPhoto(logger)
         .then(function(photo) { 
           nextPhoto = photo;
-          //winston.info('Next file retrieved.  Adding exif stuff.');
-          //let base64imageData = nextPhoto.photoBitsBuffer.toString('base64');
-          //let exifdata = piexif.load('data:image/jpeg;base64,' + base64imageData);
-          //winston.debig('0th exif: ' + JSON.stringify(exifdata["0th"]))
-          winston.info('Next file ready.');
+          logger.info('Next file ready.');
           resolve();
         }).catch(err => {
-          winston.error(err);
+          logger.error(err);
           reject(err)
         });
     }
@@ -65,22 +60,19 @@ async function getNextPhoto() {
 
 async function providePhoto(ctx, next) {
   try {
-    winston.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
-    winston.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
+    logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
+    logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     if(nextPhoto !== undefined && nextPhoto !== 'fetching') {
-      winston.info('Looks like we have a new picture to serve')
+      logger.info('Looks like we have a new picture to serve')
       currentPhoto = nextPhoto;
       nextPhoto = undefined;
     } else {
-      winston.warn('Looks like next file is not ready yet.  Slow poke')
+      logger.warn('Looks like next file is not ready yet.  Slow poke')
     }
     
     if(currentPhoto !== undefined) {
-      winston.info('Serving current photo')
-      ctx.body = currentPhoto.photoBitsBuffer;
-      ctx.set('Content-Type', 'image/jpeg');
-      ctx.set('Content-Length', currentPhoto.photoBitsBuffer.byteLength);
-      ctx.set('X-Photo-Meta', JSON.stringify(currentPhoto.photoInfo));
+      logger.info('Serving current photo')
+      ctx.body = currentPhoto;
     } else {  
       ctx.status = 404;
       ctx.body = { message: 'No file to serve yet.' }
@@ -90,7 +82,7 @@ async function providePhoto(ctx, next) {
     if(nextPhoto === undefined)
       await getNextPhoto();
   } catch(err) {
-    winston.error("Failed to provide a photo: " + err)
+    logger.error("Failed to provide a photo: " + err)
   }
 }
 
@@ -110,7 +102,7 @@ function setupRouting() {
 }
 
 async function showViewer(ctx) {
-  winston.info('Viewer request')
+  logger.info('Viewer request')
   await ctx.render("viewer", {
     title: "Photos",
     name: "Slartibartfast"
@@ -124,6 +116,6 @@ async function showInfo(ctx, next) {
 async function logClientMsg(ctx, next) {
   var data = ctx.request.body
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
-  winston.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
+  logger.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
   ctx.body = data
 }

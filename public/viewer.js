@@ -30,42 +30,31 @@ function getNextPhoto() {
   try {
     var imgNode = $('<img class="the-photo" alt="If you can read this, something went terribly wrong.">')
     var requestTime = new Date()
-    imgNode.prop("src","feed?" + requestTime.getTime())
-    console.log('Getting a picture.')
-    imgNode.on('load',function(x,y,z) {
-      window.lastLoadData = { a: this, x: x, y: y, z: z };
-      EXIF.getData(this, function() {
-        try {
-            var datetime = EXIF.getTag(this, "DateTime");
-            var orientation = EXIF.getTag(this, "Orientation");
-            var label = EXIF.getTag(this,"Title")
-            var msg = (new Date()).toLocaleTimeString() + ': picture acquired in ' + Math.floor((new Date() - requestTime) / 1000) + 's.  Orientation: ' + orientation + ' from ' + datetime;
-            sendLogToServer('info',msg)
-            
-            var neededRotation = 0;
-            if(orientation == 8) {
-              neededRotation = 270; 
-            } else if (orientation == 6)  {
-              neededRotation = 90;
-            }
-            
-            var secondsElapsedSinceLastUpdate = Math.floor((new Date() - timeOfLastPhotoUpdate) / 1000) 
-            var secondsMissingToMatchDesiredWait = desiredSecondsPerPicture - secondsElapsedSinceLastUpdate
-            
-            var timeToWait = Math.max(secondsMissingToMatchDesiredWait,minimumPauseBetweenRequests)
-            
-            if(secondsElapsedSinceLastUpdate > 10000000) //first load
-              timeToWait = 0 
-            
-            console.log('We\'ll wait ' + timeToWait + ' seconds before switching')
-            schedulePhotoUpdate(imgNode, neededRotation, timeToWait * 1000, msg)
-        } catch(exifErr) {
-          schedulePhotoLoad(20000,'Failed to parse EXIF data: ' + exifErr)
-        } 
-      });
+    $.getJSON("feed?" + requestTime.getTime(), function( data ) {    
+      imgNode.attr('src','data:image/jpeg;base64,' + data.photoData);
+      var datetime = new Date(parseInt(data.photoExif.tags.DateTimeOriginal) * 1000);
+      var orientation = data.photoExif.tags.Orientation;
+      var label = data.photoInfo.photos.photo[0].title;
+      var msg = (new Date()).toLocaleTimeString() + ': ' + label + ' Orientation: ' + orientation + ' from ' + datetime;
+      sendLogToServer('info',msg)
       
-    }).on('error', function(){  // when theres an error
-      schedulePhotoLoad(20000,'Failed to get next photo')
+      var neededRotation = 0;
+      if(orientation == 8) {
+        neededRotation = 270; 
+      } else if (orientation == 6)  {
+        neededRotation = 90;
+      }
+      
+      var secondsElapsedSinceLastUpdate = Math.floor((new Date() - timeOfLastPhotoUpdate) / 1000) 
+      var secondsMissingToMatchDesiredWait = desiredSecondsPerPicture - secondsElapsedSinceLastUpdate
+      
+      var timeToWait = Math.max(secondsMissingToMatchDesiredWait,minimumPauseBetweenRequests)
+      
+      if(secondsElapsedSinceLastUpdate > 10000000) //first load
+        timeToWait = 0 
+      
+      console.log('We\'ll wait ' + timeToWait + ' seconds before switching')
+      schedulePhotoUpdate(imgNode, neededRotation, timeToWait * 1000, msg)
     });
   } catch(err) {
     schedulePhotoLoad(20000,'Failed to retrieve photo: ' + err)

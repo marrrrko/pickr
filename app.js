@@ -1,5 +1,4 @@
 'use strict'
-
 const koa = require('koa')
 const bodyparser = require('koa-bodyparser')
 const app = new koa()
@@ -35,7 +34,15 @@ function startThingsUp() {
     if(!port)
       port = 8080
 
-    app.listen(port,null,null,function() { logger.info('Process #' + process.pid + ' started sharing photos on port ' + port)})
+    let server = http.createServer(app.callback()).listen(
+            port,
+            null,
+
+            null,function() { 
+              logger.info('Process #' + process.pid + ' started sharing photos on port ' + port)
+            });
+    server.keepAliveTimeout = 120000;
+    
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     getNextPhoto();
 }

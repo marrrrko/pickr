@@ -17,8 +17,8 @@ const os = require('os')
 var currentPhoto = undefined;
 var nextPhoto = undefined;
 
-logger.add(logger.transports.File, { name: 'normal', filename: 'frame.log' })
-logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'error' })
+logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log','timestamp': true })
+logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'error', 'timestamp': true  })
 
 startThingsUp();
 

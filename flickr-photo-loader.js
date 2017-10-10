@@ -1,7 +1,6 @@
 const _ = require("lodash");
 const got = require('got');
 const Flickr = require("flickrapi");
-const b64 = require('base64-arraybuffer');
 const exifparser = require('exif-parser');
 var logger;
 const config = require('config');
@@ -35,8 +34,7 @@ async function getAGoodPhoto(winston) {
         var aRandomPictureOriginalSize = _.find(aRandomPictureSizes.sizes.size, { label: "Original"});
         if (await pictureDataIsGood(aRandomPictureData, aRandomPictureOriginalSize)) {
           aGoodPictureData = aRandomPictureData;
-          aGoodPictureBits = await getPictureBits(aRandomPictureOriginalSize.source);
-          logger.info('T = AB ' + (aGoodPictureBits instanceof Buffer));
+          aGoodPictureBits = await getPictureBits(aRandomPictureOriginalSize.source);          
           aGoodPictureExif = await getPictureExif(aGoodPictureBits);
         }
         else {
@@ -44,13 +42,13 @@ async function getAGoodPhoto(winston) {
         }
       }
 
-      logger.info('Good picture obtained: ' + JSON.stringify(aGoodPictureData) + '(' + aGoodPictureBits.length + ')');    
+      logger.info('Good picture ready');    
 
       resolve(
         { 
           photoInfo: aGoodPictureData, 
           photoExif: aGoodPictureExif,
-          photoData: b64.encode(aGoodPictureBits)
+          photoData: Buffer.from(aGoodPictureBits).toString('base64')
         });
     } catch (err) {
       reject(err);
@@ -133,7 +131,7 @@ async function getPictureBits(url) {
   return new Promise(async function(resolve, reject) {
     logger.info('Fetching ' + url);
     var response = await got(url, { encoding: null });
-    logger.debug('Got response ' + response.body.length);
+    logger.info('Got response ' + response.body.length);
     resolve(response.body);
   });
 }
@@ -141,6 +139,7 @@ async function getPictureBits(url) {
 function getPictureExif(pictureData) {
   return new Promise(async function(resolve, reject) {
     try {
+      logger.info('Extracting EXIF');
       var parser = exifparser.create(pictureData);
       var result = parser.parse();
       resolve(result);

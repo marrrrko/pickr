@@ -69,7 +69,13 @@ async function providePhoto(ctx, next) {
   try {
     logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-    if(nextPhoto !== undefined && nextPhoto !== 'fetching') {
+    if(currentPhoto == undefined && nextPhoto == undefined) {
+      logger.error('Looks like flow of photos hasn\'t started!');
+      ctx.status = 500;
+      ctx.body = { message: 'No flow!' }
+    }
+
+    if(nextPhoto !== 'fetching') {
       logger.info('Looks like we have a new picture to serve')
       currentPhoto = nextPhoto;
       nextPhoto = undefined;
@@ -87,7 +93,7 @@ async function providePhoto(ctx, next) {
 
     await next;
     if(nextPhoto === undefined)
-      await getNextPhoto();
+      getNextPhoto();
   } catch(err) {
     logger.error("Failed to provide a photo: " + err)
   }

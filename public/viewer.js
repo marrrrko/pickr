@@ -2,10 +2,13 @@ $(document).ready(function() {
   window.keepmoving = true
   window.desiredSecondsPerPicture = 60
   window.minimumPauseBetweenRequests = 10 //give the server (and the cpu) a little breather
-  window.timeOfLastPhotoUpdate = new Date(0)
+  window.timeOfLastPhotoUpdate = new Date(0);
+  window.debug = false;
   sendLogToServer('info','Client starting with ' + desiredSecondsPerPicture + 's/' + minimumPauseBetweenRequests + 's delays configured')
   getNextPhoto()
-  toastr["success"]("My name is Inigo Montoya. You killed my father. Prepare to die!")
+
+  if(window.debug)
+    toastr["success"]("My name is Inigo Montoya. You killed my father. Prepare to die!")
 });
 
 toastr.options = {
@@ -32,10 +35,10 @@ function getNextPhoto() {
     var requestTime = new Date()
     $.getJSON("feed?" + requestTime.getTime(), function( data ) {    
       imgNode.attr('src','data:image/jpeg;base64,' + data.photoData);
-      var datetime = new Date(parseInt(data.photoExif.tags.DateTimeOriginal) * 1000);
+      var datetime = moment(new Date(parseInt(data.photoExif.tags.DateTimeOriginal) * 1000)).format('MMMM Do YYYY');
       var orientation = data.photoExif.tags.Orientation;
       var label = data.photoInfo.photos.photo[0].title;
-      var msg = (new Date()).toLocaleTimeString() + ': ' + label + ' Orientation: ' + orientation + ' from ' + datetime;
+      var msg =  label + '<br />' + datetime + '<br />Orientation: ' + orientation + '<br />Served at: ' + (new Date()).toLocaleTimeString();
       sendLogToServer('info',msg)
       
       var neededRotation = 0;
@@ -54,10 +57,18 @@ function getNextPhoto() {
         timeToWait = 0 
       
       console.log('We\'ll wait ' + timeToWait + ' seconds before switching')
-      schedulePhotoUpdate(imgNode, neededRotation, timeToWait * 1000, msg)
+      schedulePhotoUpdate(imgNode, { caption: label, dateLabel: datetime }, neededRotation, timeToWait * 1000, msg)
+    }).fail(function( jqxhr, textStatus, error ) {
+        var photoRequestError = jqxhr.status + ": " + textStatus + ", " + error;
+        if(jqxhr.status == 404) {
+          console.log( "No photo found.  Retrying in 20 seconds.");
+          schedulePhotoLoad(20000);
+        } else {
+          schedulePhotoLoad(30000,'HTTP error while retrieving photo: ' + photoRequestError);
+        }
     });
   } catch(err) {
-    schedulePhotoLoad(20000,'Failed to retrieve photo: ' + err)
+    schedulePhotoLoad(30000,'Unknown error while retrieving photo: ' + err);
   }
 }
 
@@ -75,17 +86,17 @@ function schedulePhotoLoad(delay, errMessage)  {
 }
 
 
-function schedulePhotoUpdate(imgNode, rotation, delay, msg)  {
+function schedulePhotoUpdate(imgNode, imgInfo, rotation, delay, msg)  {
     
   setTimeout(
     function() {
-      updatePhoto(imgNode, msg, rotation)
+      updatePhoto(imgNode, imgInfo, msg, rotation)
     }, 
     delay)
 }
 
-function updatePhoto(imgNode, msg, rotation) {
-  toastr.clear()
+function updatePhoto(imgNode, imgInfo, debugMsg, rotation) {
+  toastr.remove()
   $('.image-photo').empty()
   if(rotation && rotation != 0)  {
     imgNode.css("transform","rotate(" + rotation + "deg)");
@@ -94,9 +105,18 @@ function updatePhoto(imgNode, msg, rotation) {
   $('.image-photo').append(imgNode)
   window.timeOfLastPhotoUpdate = new Date()
   
-  if(msg)
-    toastr.info(msg, { positionClass: "toast-bottom-left", showDuration: 30  })
+  if(debugMsg && window.debug)
+    toastr.info(debugMsg, { positionClass: "toast-bottom-left", showDuration: 30  })
   
+  $(".image-captions .line1").empty();
+  $(".image-captions .line2").empty();
+
+  if(imgInfo && imgInfo.caption)
+    $(".image-captions .line1").text(imgInfo.caption);
+
+  if(imgInfo && imgInfo.dateLabel)
+    $(".image-captions .line2").text(imgInfo.dateLabel);
+
   getNextPhoto();
 }
 
@@ -107,7 +127,8 @@ function sendLogToServer(level, msg, extraInfo) {
   } 
   catch (err) {
     console.log('Failed to log with server.  Must be down.')
-    toastr["warning"]("Failed to log with server.  Must be down.")
+    if(window.debug)
+      toastr["warning"]("Failed to log with server.  Must be down.")
   }
 }
 

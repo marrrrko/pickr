@@ -3,6 +3,12 @@
     
   </div>
 </div>
+
+<div class="image-captions">
+  <span class="line1"></span><br />
+  <span class="line2"></span>
+</div>
+
 <style>
   
   html, body {
@@ -27,7 +33,30 @@
     max-height: 100%;
     margin: auto;
     overflow: auto;
-  
+  }
+
+  div.image-captions {
+    position: fixed;
+    bottom: 0px;
+    right: 0px;
+    text-align: right;
+    padding-top: 8px;    
+    padding-right: 20px;
+    padding-bottom: 20px;
+    padding-left: 8px;    
+    border-radius: 8px;
+    -webkit-backdrop-filter: blur(5px);
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+
+div.image-captions span.line1 {
+  font-size: 2em;
+}
+
+div.image-captions span.line2 {
+  font-size: 1.3em;
+}
+
 </style>
 
 <script src="viewer.js"></script>

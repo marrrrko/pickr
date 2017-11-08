@@ -17,6 +17,7 @@ const PubSub = require('pubsub-js');
 
 var currentPhoto = undefined;
 var photoQueue = [];
+var queuePaused = false;
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log','timestamp': true })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'error', 'timestamp': true  })
@@ -87,13 +88,16 @@ async function providePhoto(ctx, next) {
     logger.info('A client has requested a photo.');
     //logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
     //logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-
-    if(photoQueue.length > 0) {      
-      currentPhoto = photoQueue.shift();
-      logger.info('Got a picture from the queue.  Queue length now ' + photoQueue.length);
-      requestAnotherPhoto();
+    if(!queuePaused) {
+      if(photoQueue.length > 0) {      
+        currentPhoto = photoQueue.shift();
+        logger.info('Got a picture from the queue.  Queue length now ' + photoQueue.length);
+        requestAnotherPhoto();
+      } else {
+        logger.warn('Looks like queue is empty.  Slow poke')
+      }
     } else {
-      logger.warn('Looks like queue is empty.  Slow poke')
+      logger.info('Queue is paused.  Returning previous picture.');
     }
     
     if(currentPhoto !== undefined) {
@@ -156,5 +160,12 @@ async function execSleepAction(action)  {
     if(msUntilNextAction < 0)
       msUntilNextAction = 0;
   logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
-  setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
+  setTimeout(function() {
+    if(action.type == 'sleep') {
+      queuePaused = true;
+    } else {
+      queuePaused = false;
+    }
+    execSleepAction(nextAction);
+  },msUntilNextAction);
 }

@@ -12,6 +12,7 @@ const fs = require('fs')
 const logger = require('winston')
 const http = require('http')
 const os = require('os')
+const monitorctl = require('./monitorcontrol');
 
 var currentPhoto = undefined;
 var nextPhoto = undefined;
@@ -45,6 +46,18 @@ function startThingsUp() {
     
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     getNextPhoto();
+
+    let nextAction = monitorctl.getNextAction(
+                        null, 
+                        config.get('dailySleepAtMinutes'), 
+                        config.get('dailyWakeAtMinutes'));
+
+    let msUntilNextAction = nextAction.time - (new Date).getTime();
+    if(msUntilNextAction < 0)
+      msUntilNextAction = 0;
+
+    logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
+    setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
 }
 
 async function getNextPhoto() {
@@ -131,4 +144,19 @@ async function logClientMsg(ctx, next) {
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
   logger.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
   ctx.body = data
+}
+
+async function execSleepAction(action)  {
+  logger.info('Time to sleep/wake: ' + JSON.stringify(action));
+  await monitorctl.executeAction(action);
+  let nextAction = monitorctl.getNextAction(
+                        action, 
+                        config.get('dailySleepAtMinutes'), 
+                        config.get('dailyWakeAtMinutes'));
+
+  let msUntilNextAction = nextAction.time - (new Date).getTime();
+    if(msUntilNextAction < 0)
+      msUntilNextAction = 0;
+  logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
+  setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
 }

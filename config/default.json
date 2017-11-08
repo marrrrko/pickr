@@ -5,5 +5,7 @@
   "access_token": "",
   "access_token_secret": "",
   "users": [""],
-  "prefix":null
+  "prefix": null,
+  "dailySleepAtMinutes": [1380],
+  "dailyWakeAtMinutes": [420]
 }

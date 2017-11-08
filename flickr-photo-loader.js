@@ -23,7 +23,13 @@ async function handlePhotoRequest(msg, data) {
     PubSub.publish( 'photosArrivals', newPhoto)  
   } catch(err) {
     data.logger.error('Photo retrieval failure', err);
-    process.exit(1);
+    if(err.startsWith('Photo retrieval failure could not parse body as JSON')) {
+      logger.warn('Error while calling flickr. Non JSON response.  They\'re probably down. Retrying in 5 seconds.');
+      setTimeout(() => { PubSub.publish( 'photosRequests', { logger: data.logger } ) },5000);
+    } else {
+      process.exit(1);
+    }
+    
   }
 }
 

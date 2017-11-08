@@ -12,8 +12,20 @@ const flickrOptions = {
       access_token: config.get('access_token'),
       access_token_secret: config.get('access_token_secret')
     };
+const PubSub = require('pubsub-js');
 
-module.exports = { getAGoodPhoto: getAGoodPhoto }
+module.exports = { handlePhotoRequest: handlePhotoRequest }
+
+async function handlePhotoRequest(msg, data) {
+  console.log('Photo loader has received a request.');
+  try {
+    let newPhoto = await getAGoodPhoto(data.logger);
+    PubSub.publish( 'photosArrivals', newPhoto)  
+  } catch(err) {
+    data.logger.error('Photo retrieval failure', err);
+    process.exit(1);
+  }
+}
 
 async function getAGoodPhoto(winston) {
   logger = winston;

@@ -13,9 +13,10 @@ const logger = require('winston')
 const http = require('http')
 const os = require('os')
 const monitorctl = require('./monitorcontrol');
+const PubSub = require('pubsub-js');
 
 var currentPhoto = undefined;
-var nextPhoto = undefined;
+var photoQueue = [];
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log','timestamp': true })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'error', 'timestamp': true  })
@@ -45,10 +46,25 @@ function startThingsUp() {
     server.keepAliveTimeout = 120000;
     
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-    getNextPhoto();
+    
+    var token1 = PubSub.subscribe( 'photosArrivals', handleNewPhotoArrival );
+    var token2 = PubSub.subscribe( 'photosRequests', flickrLoader.handlePhotoRequest );
+    requestAnotherPhoto();
+
+    //Wait 10 seconds and get another picture for the queue.
+    setTimeout(() => { requestAnotherPhoto();}, 10000);
 
     if(config.get('dailySleepAtMinutes').length)
       startMonitorSleepActions();
+}
+
+function handleNewPhotoArrival(msg, photoData) {
+  photoQueue.push(photoData);
+  console.log('Photo has arrived.  Queue now at length ' + photoQueue.length);
+}
+
+function requestAnotherPhoto() {
+  PubSub.publish( 'photosRequests', { logger: logger } );
 }
 
 function startMonitorSleepActions() {
@@ -66,40 +82,18 @@ function startMonitorSleepActions() {
     setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
 }
 
-async function getNextPhoto() {
-  return new Promise(async function(resolve, reject) {
-    if(nextPhoto !== "fetching") {
-      nextPhoto = "fetching";
-      flickrLoader
-        .getAGoodPhoto(logger)
-        .then(function(photo) { 
-          nextPhoto = photo;
-          logger.info('Next file ready.');
-          resolve();
-        }).catch(err => {
-          logger.error(err);
-          reject(err)
-        });
-    }
-  });
-}
-
 async function providePhoto(ctx, next) {
   try {
-    logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
-    logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-    if(currentPhoto == undefined && nextPhoto == undefined) {
-      logger.error('Looks like flow of photos hasn\'t started!');
-      ctx.status = 500;
-      ctx.body = { message: 'No flow!' }
-    }
+    logger.info('A client has requested a photo.');
+    //logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
+    //logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
 
-    if(nextPhoto !== 'fetching') {
-      logger.info('Looks like we have a new picture to serve')
-      currentPhoto = nextPhoto;
-      nextPhoto = undefined;
+    if(photoQueue.length > 0) {      
+      currentPhoto = photoQueue.shift();
+      logger.info('Got a picture from the queue.  Queue length now ' + photoQueue.length);
+      requestAnotherPhoto();
     } else {
-      logger.warn('Looks like next file is not ready yet.  Slow poke')
+      logger.warn('Looks like queue is empty.  Slow poke')
     }
     
     if(currentPhoto !== undefined) {
@@ -110,9 +104,7 @@ async function providePhoto(ctx, next) {
       ctx.body = { message: 'No file to serve yet.' }
     }
 
-    await next;
-    if(nextPhoto === undefined)
-      getNextPhoto();
+    await next();
   } catch(err) {
     logger.error("Failed to provide a photo: " + err)
   }

@@ -47,7 +47,13 @@ function startThingsUp() {
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     getNextPhoto();
 
-    let nextAction = monitorctl.getNextAction(
+    if(config.get('dailySleepAtMinutes').length)
+      startMonitorSleepActions();
+}
+
+function startMonitorSleepActions() {
+
+  let nextAction = monitorctl.getNextAction(
                         null, 
                         config.get('dailySleepAtMinutes'), 
                         config.get('dailyWakeAtMinutes'));

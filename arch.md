@@ -15,4 +15,4 @@ pacman -S ttf-dejavu --noconfirm # set of nice fonts
 pacman -S raspberrypi-firmware-tools to get vcgencmd
 
 
-tzselect to setup timezone
+tzselect to setup timezone...  > ln -sf /usr/share/zoneinfo/America/Toronto /etc/localtime

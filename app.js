@@ -14,17 +14,18 @@ const http = require('http')
 const os = require('os')
 const monitorctl = require('./monitorcontrol');
 const PubSub = require('pubsub-js');
+const moment = require('moment');
 
 var currentPhoto = undefined;
 var photoQueue = [];
 var queuePaused = false;
 
-logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log','timestamp': true })
-logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'error', 'timestamp': true  })
+logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
+logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
 
 startThingsUp();
 
-function startThingsUp() {
+async function startThingsUp() {
     logger.info("Getting things ready...")
     
     let router = setupRouting();
@@ -56,7 +57,7 @@ function startThingsUp() {
     setTimeout(() => { requestAnotherPhoto();}, 10000);
 
     if(config.get('dailySleepAtMinutes').length)
-      startMonitorSleepActions();
+      await startMonitorSleepActions();
 }
 
 function handleNewPhotoArrival(msg, photoData) {
@@ -68,7 +69,7 @@ function requestAnotherPhoto() {
   PubSub.publish( 'photosRequests', { } );
 }
 
-function startMonitorSleepActions() {
+async function startMonitorSleepActions() {
 
   let nextAction = monitorctl.getNextAction(
                         null, 
@@ -81,6 +82,12 @@ function startMonitorSleepActions() {
 
     logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
     setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
+
+    //makesure screen is in the correct state
+    if(nextAction.type == 'sleep')
+      await monitorctl.executeAction({type: 'wake'});
+    else
+      await monitorctl.executeAction({type: 'sleep'});
 }
 
 async function providePhoto(ctx, next) {

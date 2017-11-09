@@ -2,7 +2,7 @@ const _ = require("lodash");
 const got = require('got');
 const Flickr = require("flickrapi");
 const exifparser = require('exif-parser');
-var logger;
+var logger = require('winston');
 const config = require('config');
 var watcher
 const flickrOptions = {
@@ -17,15 +17,15 @@ const PubSub = require('pubsub-js');
 module.exports = { handlePhotoRequest: handlePhotoRequest }
 
 async function handlePhotoRequest(msg, data) {
-  console.log('Photo loader has received a request.');
+  logger.info('Photo loader has received a request.');
   try {
-    let newPhoto = await getAGoodPhoto(data.logger);
+    let newPhoto = await getAGoodPhoto();
     PubSub.publish( 'photosArrivals', newPhoto)  
   } catch(err) {
-    data.logger.error('Photo retrieval failure', err);
+    logger.error('Photo retrieval failure', err);
     if(err.startsWith('Photo retrieval failure could not parse body as JSON')) {
       logger.warn('Error while calling flickr. Non JSON response.  They\'re probably down. Retrying in 5 seconds.');
-      setTimeout(() => { PubSub.publish( 'photosRequests', { logger: data.logger } ) },5000);
+      setTimeout(() => { PubSub.publish( 'photosRequests', {  } ) },5000);
     } else {
       process.exit(1);
     }
@@ -33,8 +33,7 @@ async function handlePhotoRequest(msg, data) {
   }
 }
 
-async function getAGoodPhoto(winston) {
-  logger = winston;
+async function getAGoodPhoto() {  
   return new Promise(async function(resolve, reject) {
     try  {
       let flickrConnection = await getFlickrConnection();
@@ -147,10 +146,15 @@ async function pictureDataIsGood(flickrPhotoSearchResult, originalPhotoData) {
 
 async function getPictureBits(url) {
   return new Promise(async function(resolve, reject) {
-    logger.info('Fetching ' + url);
-    var response = await got(url, { encoding: null });
-    logger.info('Got response ' + response.body.length);
-    resolve(response.body);
+    try {
+      logger.info('Fetching ' + url);
+      var response = await got(url, { encoding: null });
+      logger.info('Got response ' + response.body.length);
+      resolve(response.body);
+    } catch (error) {
+        logger.error('getPictureBits error: ' + error.message);
+        reject(error);
+    }
   });
 }
 
@@ -162,7 +166,8 @@ function getPictureExif(pictureData) {
       var result = parser.parse();
       resolve(result);
     } catch (error) {
-        console.log('Error: ' + error.message);
+        logger.error('getPictureExif error: ' + error.message);
+        reject(error);
     }
   });
 }

@@ -61,11 +61,11 @@ function startThingsUp() {
 
 function handleNewPhotoArrival(msg, photoData) {
   photoQueue.push(photoData);
-  console.log('Photo has arrived.  Queue now at length ' + photoQueue.length);
+  logger.info('Photo has arrived.  Queue now at length ' + photoQueue.length);
 }
 
 function requestAnotherPhoto() {
-  PubSub.publish( 'photosRequests', { logger: logger } );
+  PubSub.publish( 'photosRequests', { } );
 }
 
 function startMonitorSleepActions() {
@@ -92,9 +92,11 @@ async function providePhoto(ctx, next) {
       if(photoQueue.length > 0) {      
         currentPhoto = photoQueue.shift();
         logger.info('Got a picture from the queue.  Queue length now ' + photoQueue.length);
-        requestAnotherPhoto();
+        if(photoQueue.length < 3)
+          requestAnotherPhoto();
       } else {
-        logger.warn('Looks like queue is empty.  Slow poke')
+        logger.warn('Looks like queue is empty.  Slow poke');
+        requestAnotherPhoto();
       }
     } else {
       logger.info('Queue is paused.  Returning previous picture.');

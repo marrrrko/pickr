@@ -22,7 +22,7 @@ async function handlePhotoRequest(msg, data) {
     let newPhoto = await getAGoodPhoto();
     PubSub.publish( 'photosArrivals', newPhoto)  
   } catch(err) {    
-    if(err.message.startsWith('Photo retrieval failure could not parse body as JSON')) {
+    if(err.message && err.message.startsWith('Photo retrieval failure could not parse body as JSON')) {
       logger.warn('Error while calling flickr. Non JSON response.  They\'re probably down. Retrying in 5 seconds.');
       setTimeout(() => { PubSub.publish( 'photosRequests', {  } ) },5000);
     } else {
@@ -85,20 +85,25 @@ async function getFlickrConnection() {
 }
 
 async function getTotalNumberOfPhotos(flickrConnection, userId) {
-  return new Promise(async function(resolve, reject) {    
+  return new Promise(async function(resolve, reject) {  
+    try {  
       flickrConnection.people.getPhotos({ user_id: userId, authenticated: true, privacy_filter: 4, per_page: 1}, function(err, result) {
         if(err)
           reject(err);
         else
           resolve(result.photos.total);
       });
+    } catch(err) {
+      logger.error('Failed to flickr getTotalNumberOfPhotos', err);
+      reject(err);
+    }
   });
 }
 
 async function getARandomPictureData(flickrConnection, userId, totatNumberOfPhotos) {
   return new Promise(async function(resolve, reject) {
     var randomPhotoNumber = Math.floor(Math.random() * totatNumberOfPhotos);    
-    try{ 
+    try { 
       //if(flickr.options && flickr.options.users && flickr.options.users.length)
       //  user = flickr.options.users[0];
         
@@ -111,7 +116,7 @@ async function getARandomPictureData(flickrConnection, userId, totatNumberOfPhot
         resolve(searchResult); 
       });
     } catch (err)  {
-      logger.error('Failed to flickr search', err)
+      logger.error('Failed to flickr search', err);
       reject(err)
     }
   })
@@ -119,27 +124,37 @@ async function getARandomPictureData(flickrConnection, userId, totatNumberOfPhot
 
 async function getPictureAvailableSizes(flickrConnection, flickrPhotoSearchResult, userId) {
   return new Promise(async function(resolve, reject) {
-    flickrConnection.photos.getSizes({
-      user_id: userId,
-      authenticated: true,
-      photo_id: flickrPhotoSearchResult.photos.photo[0].id
-    }, function(err, availableSizes) { 
-        if(err)
-          reject(err);
-        else
-          resolve(availableSizes);
-    });
+    try {
+      flickrConnection.photos.getSizes({
+        user_id: userId,
+        authenticated: true,
+        photo_id: flickrPhotoSearchResult.photos.photo[0].id
+      }, function(err, availableSizes) { 
+          if(err)
+            reject(err);
+          else
+            resolve(availableSizes);
+      });
+    } catch (err)  {
+      logger.error('Failed to flickr getPictureAvailableSizes', err);
+      reject(err)
+    }
   });
 }
 
 async function pictureDataIsGood(flickrPhotoSearchResult, originalPhotoData) {
   return new Promise(async function(resolve, reject) {
-    let photoIsGood = flickrPhotoSearchResult.photos.photo[0].ispublic || flickrPhotoSearchResult.photos.photo[0].isfamily || flickrPhotoSearchResult.photos.photo[0].isfriend;
-    photoIsGood = photoIsGood && originalPhotoData.media == "photo";
-    if(photoIsGood) {
-      resolve(true)
-    } else {
-      resolve(false);
+    try {
+      let photoIsGood = flickrPhotoSearchResult.photos.photo[0].ispublic || flickrPhotoSearchResult.photos.photo[0].isfamily || flickrPhotoSearchResult.photos.photo[0].isfriend;
+      photoIsGood = photoIsGood && originalPhotoData.media == "photo";
+      if(photoIsGood) {
+        resolve(true)
+      } else {
+        resolve(false);
+      }
+    } catch (err)  {
+      logger.error('Failed to check pictureDataIsGood', err);
+      reject(err)
     }
   })
 }

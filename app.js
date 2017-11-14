@@ -84,13 +84,17 @@ async function startMonitorSleepActions() {
     setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
 
     //makesure screen is in the correct state
-    if(nextAction.type == 'sleep')
+    if(nextAction.type == 'sleep') {
       await monitorctl.executeAction({type: 'wake'});
-    else
+      queuePaused = false;
+    }
+    else {
       await monitorctl.executeAction({type: 'sleep'});
+      queuePaused = true;
+    }
 }
 
-async function providePhoto(ctx, next) {
+async function providePhoto(ctx) {
   try {
     logger.info('A client has requested a photo.');
     //logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
@@ -110,16 +114,16 @@ async function providePhoto(ctx, next) {
     }
     
     if(currentPhoto !== undefined) {
-      logger.info('Serving current photo')
       ctx.body = currentPhoto;
     } else {  
+      logger.warn('No photo to serve.  Returning 404.');
       ctx.status = 404;
-      ctx.body = { message: 'No file to serve yet.' }
+      ctx.body = { message: 'No file to serve yet.' };
     }
-
-    await next();
   } catch(err) {
-    logger.error("Failed to provide a photo: " + err)
+    logger.error('Failed to provide a photo: ',err);
+    ctx.status = 500;
+    ctx.body = { message: err.message };
   }
 }
 
@@ -160,6 +164,13 @@ async function logClientMsg(ctx, next) {
 async function execSleepAction(action)  {
   logger.info('Time to sleep/wake: ' + JSON.stringify(action));
   await monitorctl.executeAction(action);
+
+  if(action.type == 'sleep') {
+    queuePaused = true;
+  } else {
+    queuePaused = false;
+  }
+
   let nextAction = monitorctl.getNextAction(
                         action, 
                         config.get('dailySleepAtMinutes'), 
@@ -170,11 +181,6 @@ async function execSleepAction(action)  {
       msUntilNextAction = 0;
   logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
   setTimeout(function() {
-    if(action.type == 'sleep') {
-      queuePaused = true;
-    } else {
-      queuePaused = false;
-    }
     execSleepAction(nextAction);
   },msUntilNextAction);
 }

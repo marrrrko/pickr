@@ -22,14 +22,10 @@ async function handlePhotoRequest(msg, data) {
     let newPhoto = await getAGoodPhoto();
     PubSub.publish( 'photosArrivals', newPhoto)  
   } catch(err) {    
-    if(err.message && err.message.startsWith('Photo retrieval failure could not parse body as JSON')) {
-      logger.warn('Error while calling flickr. Non JSON response.  They\'re probably down. Retrying in 5 seconds.');
       setTimeout(() => { PubSub.publish( 'photosRequests', {  } ) },5000);
-    } else {
-      logger.error('Photo retrieval failure', err);
-      process.exit(1);
-    }
-    
+      logger.error('Photo retrieval failure (retrying in 5s) =>', err);
+      //logger.info('Exiting because I didn\'t recognize this error: ' + JSON.stringify(err));
+      //process.exit(1);
   }
 }
 
@@ -68,6 +64,7 @@ async function getAGoodPhoto() {
           photoData: Buffer.from(aGoodPictureBits).toString('base64')
         });
     } catch (err) {
+      logger.error('Failed to getAGoodPhoto',err);
       reject(err);
     }
   });
@@ -76,10 +73,12 @@ async function getAGoodPhoto() {
 async function getFlickrConnection() {
   return new Promise(async function(resolve, reject) {
     Flickr.authenticate(flickrOptions, function(error, flickr) {
-      if(error)
-        reject(error)
-      else
-        resolve(flickr)
+      if(error) {
+       logger.error('Failed to getFlickrConnection',error);
+        reject(error);
+      } else {
+        resolve(flickr);
+      }
     });
   });
 }

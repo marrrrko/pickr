@@ -10,6 +10,7 @@ const flickrLoader = require('./flickr-photo-loader')
 const config = require('config')
 const fs = require('fs')
 const logger = require('winston')
+const papertrail = require('winston-papertrail')
 const http = require('http')
 const os = require('os')
 const monitorctl = require('./monitorcontrol');
@@ -22,6 +23,7 @@ var queuePaused = false;
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
+//logger.add(papertrail.Papertrail, { level: 'info', host: 'logs6.papertrailapp.com', port: 28797 });
 
 startThingsUp();
 

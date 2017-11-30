@@ -7,5 +7,7 @@
   "users": [""],
   "prefix": null,
   "dailySleepAtMinutes": [1380],
-  "dailyWakeAtMinutes": [420]
+  "dailyWakeAtMinutes": [420],
+  "papertrailhost": null,
+  "papertrailport:": null
 }

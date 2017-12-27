@@ -1,15 +1,30 @@
-var Gpio = require('onoff').Gpio;
-var pir = new Gpio(4, 'in', 'both');
+const Gpio = require('onoff').Gpio;
+const pir = new Gpio(4, 'in', 'both');
+const PubSub = require('pubsub-js');
+var logger = require('winston');
 
-pir.watch(function (err, value) {
-  if (err) {
-    throw err;
-  }
+module.exports.startWatching = startWatching;
+module.exports.stopWatching = stopWatching;
 
-  console.log('Got something from PIR: ' + value);
-});
+function startWatching() {
+  logger.debug("Starting PIR watching");
+  pir.watch(function (err, value) {
+    if (err) {
+      throw err;
+    }
+  
+    logger.info('Got something from PIR: ' + value);
+    if(value == 1)
+      PubSub.publish( 'motion-activity', "sawsomething");
+  });
+}
+
+function stopWatching() {
+  logger.debug("Stopping PIR watching");
+  pir.unwatch();
+}
 
 process.on('SIGINT', function () {
-  pir.unexport();
+    pir.unexport();
 });
 

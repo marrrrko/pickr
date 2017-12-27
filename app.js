@@ -6,7 +6,6 @@ const routing = require('koa-router')
 const serve = require('koa-static')
 const handlebars = require('koa-handlebars')
 const send = require('koa-send')
-const flickrLoader = require('./flickr-photo-loader')
 const config = require('config')
 const fs = require('fs')
 const logger = require('winston')
@@ -17,9 +16,13 @@ const monitorctl = require('./monitorcontrol');
 const PubSub = require('pubsub-js');
 const moment = require('moment');
 
+const flickrLoader = require('./flickr-photo-loader')
+const motion = require('./motion')
+
 var currentPhoto = undefined;
 var photoQueue = [];
 var queuePaused = false;
+var idleMotionTimer = null;
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
@@ -41,12 +44,12 @@ async function startThingsUp() {
       port = 8080
 
     let server = http.createServer(app.callback()).listen(
-            port,
-            null,
+      port,
+      null,
 
-            null,function() { 
-              logger.info('Process #' + process.pid + ' started sharing photos on port ' + port)
-            });
+      null,function() { 
+        logger.info('Process #' + process.pid + ' started sharing photos on port ' + port)
+      });
     server.keepAliveTimeout = 120000;
     
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
@@ -60,6 +63,29 @@ async function startThingsUp() {
 
     if(config.get('dailySleepAtMinutes').length)
       await startMonitorSleepActions();
+      
+    let motionIdleSleepAfterMinutes = config.get('sleepAfterLackOfMotionMinutes');
+    if(motionIdleSleepAfterMinutes && motionIdleSleepAfterMinutes > 0) {
+      motion.startWatching();
+      var token3 = PubSub.subscribe( 'motion-activity', flickrLoader.handlePhotoRequest );  
+      resetIdleMotionTimer();
+    } else {
+      logger.info("Motion idle sleep not active (" + motionIdleSleepAfterMinutes + ")")
+    }
+      
+}
+
+function resetIdleMotionTimer() {
+  logger.debug("Resetting idle timer")
+  if(idleMotionTimer)
+    clearTimeout(idleMotionTimer);
+  
+  let motionIdleSleepAfterMinutes = config.get('sleepAfterLackOfMotionMinutes');
+  idleMotionTimer = setTimeout(function() {
+    logger.debug("Idle timer is up! Sleeping")
+    nextAction = { type: 'sleep', time: new Date() }
+    execSleepAction(nextAction)
+  },motionIdleSleepAfterMinutes * 60 * 1000)
 }
 
 function handleNewPhotoArrival(msg, photoData) {
@@ -161,6 +187,13 @@ async function logClientMsg(ctx, next) {
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
   logger.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
   ctx.body = data
+}
+
+function handleMotionDetectorEvent(evt) {
+  logger.debug("Motion detector actity!  Waking and resetting");
+  nextAction = { type: 'wake', time: new Date() }
+  execSleepAction(nextAction)
+  resetIdleMotionTimer()
 }
 
 async function execSleepAction(action)  {

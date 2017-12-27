@@ -61,31 +61,79 @@ configure NODE_JS_HOME in /etc/profile
 
 sudo npm i nodemon --global
 
+Setup systemctl service
+===================================
+sudo vi /lib/systemd/system/pickr.service
+  [Unit]
+  Description=pickr flickr photo frame source
+  Documentation=https://github.com/SrGrieves/pickr
+  After=network.target
+  
+  [Service]
+  Environment=NODE_PORT=3001
+  Type=simple
+  User=pi
+  ExecStart=/usr/bin/node /home/pi/pickr/app.js
+  
+  [Install]
+  WantedBy=multi-user.target
 
+sudo systemctl daemon-reload
+sudo systemctl start pickr
+sudo systemctl enable pickr
 
 
 Install chromium
 ===================================
-
-sudo apt-get install -y chromium-browser ttf-mscorefonts-installer unclutter x11-xserver-utils
+sudo apt-get install -y chromium-browser ttf-mscorefonts-installer unclutter x11-xserver-utils matchbox-window-manager xinit
 
 
 Setup autologin and autostart
 ===================================
 `sudo raspi-config` -> Boot Options -> Console Autologin
+vi .xinitrc
+  while true; do
+  	# Clean up previously running apps, gracefully at first then harshly
+  	killall -TERM chromium 2>/dev/null;
+  	killall -TERM matchbox-window-manager 2>/dev/null;
+  	sleep 2;
+  	killall -9 chromium 2>/dev/null;
+  	killall -9 matchbox-window-manager 2>/dev/null;
+  
+  	# Disable DPMS / Screen blanking
+  	xset -dpms
+  	xset s off
+  
+  	# Start the window manager (remove "-use_cursor no" if you actually want mouse interaction)
+  	matchbox-window-manager -use_titlebar no -use_cursor no &
+  
+  	# Start the browser (See http://peter.sh/experiments/chromium-command-line-switches/)
+  	#until [ $(systemctl is-active pickr) == "active"  ]; do
+          #	echo -n .
+          #	sleep 2
+  	#done
+  	#sleep 10
+  	echo "Go for photo viewing!"
+  	chromium --noerrdialogs --kiosk http://localhost:8080/viewer --incognito --v=1	
+  	#midori -e Fullscreen -a http://localhost:8080/viewer
+  	#WEBKIT_DISABLE_TBS=1 epiphany -a --profile /home/alarm/.config http://localhost:8080/viewer
+  	
+  done;
 
-
-
+vi .bashrc
+  ...
+  if [ -z "$SSH_CLIENT" ]
+  then
+        startx &> ~/startx.out
+  fi
 
 Add stuff for turning screen off
 ===================================
 
 
 
-
 Add stuff for GPIO
 ===================================
-
 
 
 

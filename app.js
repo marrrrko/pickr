@@ -20,10 +20,11 @@ const moment = require('moment');
 var currentPhoto = undefined;
 var photoQueue = [];
 var queuePaused = false;
+var brokenBrowserTimer = setTimeout(restartClient, 15 * 60 * 1000);
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
-//logger.add(papertrail.Papertrail, { level: 'info', host: 'logs6.papertrailapp.com', port: 28797 });
+logger.add(papertrail.Papertrail, { level: 'info', host: 'logs6.papertrailapp.com', port: 28797 });
 
 startThingsUp();
 
@@ -99,6 +100,11 @@ async function startMonitorSleepActions() {
 async function providePhoto(ctx) {
   try {
     logger.info('A client has requested a photo.');
+    if(brokenBrowserTimer)
+      clearTimeout(brokenBrowserTimer);
+    
+    setTimeout(restartClient, 15 * 60 * 1000); //Assume browser crashed if no request in 20 minutes
+    
     //logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
     //logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
     if(!queuePaused) {
@@ -185,4 +191,9 @@ async function execSleepAction(action)  {
   setTimeout(function() {
     execSleepAction(nextAction);
   },msUntilNextAction);
+}
+
+function restartClient() {
+  logger.error('Haven\'t received a browser request in a while.  Assuming browser crashed.  Restarting.');
+  require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { logger.info(msg) });
 }

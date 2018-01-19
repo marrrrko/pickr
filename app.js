@@ -16,11 +16,13 @@ const os = require('os')
 const monitorctl = require('./monitorcontrol');
 const PubSub = require('pubsub-js');
 const moment = require('moment');
+const motion = require('./motion');
 
 var currentPhoto = undefined;
 var photoQueue = [];
 var queuePaused = false;
 var brokenBrowserTimer = setTimeout(restartClient, 15 * 60 * 1000);
+var idleMotionTimer = null;
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
@@ -59,8 +61,34 @@ async function startThingsUp() {
     //Wait 10 seconds and get another picture for the queue.
     setTimeout(() => { requestAnotherPhoto();}, 10000);
 
-    if(config.get('dailySleepAtMinutes').length)
-      await startMonitorSleepActions();
+    let motionIdleSleepAfterMinutes = config.get('sleepAfterLackOfMotionMinutes');
+    if(motionIdleSleepAfterMinutes && motionIdleSleepAfterMinutes > 0) {
+      logger.info('Using motion detection to enable idle sleep')
+      await startMotionIdleWatching(motionIdleSleepAfterMinutes);
+    } 
+}
+
+async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
+  await setMonitorPower(1);
+  motion.startWatching();
+  var token3 = PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );  
+  await resetIdleMotionTimer(motionIdleSleepAfterMinutes);
+}
+
+async function resetIdleMotionTimer(motionIdleSleepAfterMinutes) {
+  logger.info("Motion detected.  Resetting idle timer")
+  if(idleMotionTimer)
+    clearTimeout(idleMotionTimer);
+  
+  if(queuePaused) {
+    logger.info("Waking sleeping monitor")
+    await setMonitorPower(1);
+  }
+  
+  idleMotionTimer = setTimeout(async function() {
+    logger.debug("Idle timer is up! Time to sleep");
+    await setMonitorPower(0);
+  },motionIdleSleepAfterMinutes * 60 * 1000)
 }
 
 function handleNewPhotoArrival(msg, photoData) {
@@ -70,31 +98,6 @@ function handleNewPhotoArrival(msg, photoData) {
 
 function requestAnotherPhoto() {
   PubSub.publish( 'photosRequests', { } );
-}
-
-async function startMonitorSleepActions() {
-
-  let nextAction = monitorctl.getNextAction(
-                        null, 
-                        config.get('dailySleepAtMinutes'), 
-                        config.get('dailyWakeAtMinutes'));
-
-    let msUntilNextAction = nextAction.time - (new Date).getTime();
-    if(msUntilNextAction < 0)
-      msUntilNextAction = 0;
-
-    logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
-    setTimeout(() => execSleepAction(nextAction),msUntilNextAction);
-
-    //makesure screen is in the correct state
-    if(nextAction.type == 'sleep') {
-      await monitorctl.executeAction({type: 'wake'});
-      queuePaused = false;
-    }
-    else {
-      await monitorctl.executeAction({type: 'sleep'});
-      queuePaused = true;
-    }
 }
 
 async function providePhoto(ctx) {
@@ -169,31 +172,19 @@ async function logClientMsg(ctx, next) {
   ctx.body = data
 }
 
-async function execSleepAction(action)  {
-  logger.info('Time to sleep/wake: ' + JSON.stringify(action));
-  await monitorctl.executeAction(action);
-
-  if(action.type == 'sleep') {
-    queuePaused = true;
-  } else {
-    queuePaused = false;
-  }
-
-  let nextAction = monitorctl.getNextAction(
-                        action, 
-                        config.get('dailySleepAtMinutes'), 
-                        config.get('dailyWakeAtMinutes'));
-
-  let msUntilNextAction = nextAction.time - (new Date).getTime();
-    if(msUntilNextAction < 0)
-      msUntilNextAction = 0;
-  logger.info('Next monitor action is "' + nextAction.type + '" at ' + (new Date(nextAction.time)).toLocaleTimeString() + ' (in ' + msUntilNextAction + 'ms).')
-  setTimeout(function() {
-    execSleepAction(nextAction);
-  },msUntilNextAction);
-}
-
 function restartClient() {
   logger.error('Haven\'t received a browser request in a while.  Assuming browser crashed.  Restarting.');
   require('child_process').exec('sudo /sbin/shutdown -r now', function (msg) { logger.info(msg) });
+}
+
+async function setMonitorPower(on) {
+  if(on) {
+    console.log('Putting monitor to sleep');
+    queuePaused = false;
+    await monitorctl.wakeMonitor();
+  } else {
+    console.log('Waking monitor up');
+    queuePaused = true;
+    await monitorctl.putMonitorToSleep();
+  }
 }

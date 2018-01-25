@@ -1,22 +1,23 @@
 'use strict'
-const koa = require('koa')
-const bodyparser = require('koa-bodyparser')
-const app = new koa()
-const routing = require('koa-router')
-const serve = require('koa-static')
-const handlebars = require('koa-handlebars')
-const send = require('koa-send')
-const flickrLoader = require('./flickr-photo-loader')
-const config = require('config')
-const fs = require('fs')
-const logger = require('winston')
-const papertrail = require('winston-papertrail')
-const http = require('http')
-const os = require('os')
+const koa = require('koa');
+const bodyparser = require('koa-bodyparser');
+const app = new koa();
+const routing = require('koa-router');
+const serve = require('koa-static');
+const handlebars = require('koa-handlebars');
+const send = require('koa-send');
+const flickrLoader = require('./flickr-photo-loader');
+const config = require('config');
+const fs = require('fs');
+const logger = require('winston');
+const papertrail = require('winston-papertrail');
+const http = require('http');
+const os = require('os');
 const monitorctl = require('./monitorcontrol');
 const PubSub = require('pubsub-js');
 const moment = require('moment');
 const motion = require('./motion');
+const core = require('./core-functions');
 
 var currentPhoto = undefined;
 var photoQueue = [];
@@ -61,28 +62,33 @@ async function startThingsUp() {
     //Wait 10 seconds and get another picture for the queue.
     setTimeout(() => { requestAnotherPhoto();}, 10000);
 
-    let motionIdleSleepAfterMinutes = config.get('sleepAfterLackOfMotionMinutes');
+    let motionIdleSleepAfterMinutes = config.get('motionIdleSleepMinutes');
+    let blackoutPeriodConfig = config.get('blackoutPeriods');
     if(motionIdleSleepAfterMinutes && motionIdleSleepAfterMinutes > 0) {
       logger.info('Using motion detection to enable idle sleep')
-      await startMotionIdleWatching(motionIdleSleepAfterMinutes);
+      await startMotionIdleWatching(motionIdleSleepAfterMinutes, blackoutPeriodConfig);
     } 
 }
 
-async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
+async function startMotionIdleWatching(motionIdleSleepAfterMinutes, blackoutPeriodConfig) {
   await setMonitorPower(1);
   motion.startWatching();
-  var token3 = PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );  
-  await resetIdleMotionTimer(motionIdleSleepAfterMinutes);
+  var token3 = PubSub.subscribe( 'motion-activity', async function() { await handleMotionDetected(motionIdleSleepAfterMinutes, blackoutPeriodConfig) } );  
+  await handleMotionDetected(motionIdleSleepAfterMinutes, blackoutPeriodConfig);
 }
 
-async function resetIdleMotionTimer(motionIdleSleepAfterMinutes) {
+async function handleMotionDetected(motionIdleSleepAfterMinutes,blackoutPeriodConfig) {
   logger.info("Motion detected.  Resetting idle timer")
   if(idleMotionTimer)
     clearTimeout(idleMotionTimer);
   
   if(queuePaused) {
-    logger.info("Waking sleeping monitor")
-    await setMonitorPower(1);
+    if(core.isTimeWithinBlackOutPeriodValue(new Date, blackoutPeriodConfig)) {
+      logger.info("Shhh, don't wake the monitor just yet.  Blackout period detected.")
+    } else{
+      logger.info("Waking sleeping monitor")
+      await setMonitorPower(1);
+    }
   }
   
   idleMotionTimer = setTimeout(async function() {

@@ -124,7 +124,7 @@ vi .bashrc
   ...
   if [ -z "$SSH_CLIENT" ]
   then
-        startx &> ~/startx.out
+    startx -- -nocursor &> ~/startx.out
   fi
 
 Add stuff for turning screen off

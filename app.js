@@ -61,7 +61,7 @@ async function startThingsUp() {
     //Wait 10 seconds and get another picture for the queue.
     setTimeout(() => { requestAnotherPhoto();}, 10000);
 
-    let motionIdleSleepAfterMinutes = config.get('sleepAfterLackOfMotionMinutes');
+    let motionIdleSleepAfterMinutes = config.get('motionIdleSleepMinutes');
     if(motionIdleSleepAfterMinutes && motionIdleSleepAfterMinutes > 0) {
       logger.info('Using motion detection to enable idle sleep')
       await startMotionIdleWatching(motionIdleSleepAfterMinutes);

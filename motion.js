@@ -6,16 +6,20 @@ var logger = require('winston');
 module.exports.startWatching = startWatching;
 module.exports.stopWatching = stopWatching;
 
-function startWatching() {
+function startWatching(publishInactivity) {
   logger.debug("Starting PIR watching");
+  
+  if(publishInactivity == undefined)
+    publishInactivity = false;
+  
   pir.watch(function (err, value) {
     if (err) {
       throw err;
     }
   
     logger.info('Got something from PIR: ' + value);
-    if(value == 1)
-      PubSub.publish( 'motion-activity', "sawsomething");
+    if(value == 1 || publishInactivity)
+      PubSub.publish( 'motion-activity', value);
   });
 }
 

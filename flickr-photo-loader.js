@@ -2,9 +2,14 @@ const _ = require("lodash");
 const got = require('got');
 const Flickr = require("flickrapi");
 const exifparser = require('exif-parser');
-var logger = require('winston');
+//var logger = require('winston');
 const config = require('config');
-var watcher
+const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'));
+logger.addStream({
+  name: "console",
+  stream: process.stderr,
+  level: "debug"
+});
 const flickrOptions = {
       api_key: config.get('api_key'),
       secret: config.get('secret'),
@@ -12,6 +17,7 @@ const flickrOptions = {
       access_token: config.get('access_token'),
       access_token_secret: config.get('access_token_secret')
     };
+
 const PubSub = require('pubsub-js');
 
 module.exports = { handlePhotoRequest: handlePhotoRequest }

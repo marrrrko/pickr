@@ -1,7 +1,9 @@
 const Gpio = require('onoff').Gpio;
 const pir = new Gpio(4, 'in', 'both');
 const PubSub = require('pubsub-js');
-var logger = require('winston');
+//var logger = require('winston');
+const config = require('config');
+const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'));
 
 module.exports.startWatching = startWatching;
 module.exports.stopWatching = stopWatching;

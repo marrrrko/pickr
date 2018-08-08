@@ -11,13 +11,18 @@ const config = require('config')
 const fs = require('fs')
 //const logger = require('winston')
 const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'));
+logger.addStream({
+  name: "console",
+  stream: process.stderr,
+  level: "debug"
+});
 //const papertrail = require('winston-papertrail')
 const http = require('http')
 const os = require('os')
-const monitorctl = require('./monitorcontrol');
+//const monitorctl = require('./monitorcontrol');
 const PubSub = require('pubsub-js');
 const moment = require('moment');
-const motion = require('./motion');
+//const motion = require('./motion');
 
 var currentPhoto = undefined;
 var photoQueue = [];
@@ -72,7 +77,7 @@ async function startThingsUp() {
 
 async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
   await setMonitorPower(1);
-  motion.startWatching();
+  //motion.startWatching();
   var token3 = PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );  
   await resetIdleMotionTimer(motionIdleSleepAfterMinutes);
 }
@@ -192,10 +197,10 @@ async function setMonitorPower(on) {
   if(on) {
     console.log('Putting monitor to sleep');
     queuePaused = false;
-    await monitorctl.wakeMonitor();
+    //await monitorctl.wakeMonitor();
   } else {
     console.log('Waking monitor up');
     queuePaused = true;
-    await monitorctl.putMonitorToSleep();
+    //await monitorctl.putMonitorToSleep();
   }
 }

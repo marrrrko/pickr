@@ -6,7 +6,8 @@
   "access_token_secret": "",
   "users": [""],
   "prefix": null,
-  "motionIdleSleepMinutes": 10, 
+  "motionIdleSleepMinutes": 15,
+  "motionIdlePauseMinutes": 4,
   "papertrailhost": null,
   "papertrailport:": null
 }

@@ -23,6 +23,7 @@ var photoQueue = [];
 var queuePaused = false;
 var brokenBrowserTimer = setTimeout(restartClient, 15 * 60 * 1000);
 var idleMotionTimer = null;
+var lastMotionTime = new Date;
 
 logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
 logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
@@ -76,7 +77,8 @@ async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
 }
 
 async function resetIdleMotionTimer(motionIdleSleepAfterMinutes) {
-  logger.info("Motion detected.  Resetting idle timer")
+  logger.info("Motion detected.  Resetting idle timer");
+  lastMotionTime = new Date;
   if(idleMotionTimer)
     clearTimeout(idleMotionTimer);
   
@@ -106,11 +108,16 @@ async function providePhoto(ctx) {
     if(brokenBrowserTimer)
       clearTimeout(brokenBrowserTimer);
     
-    brokenBrowserTimer = setTimeout(restartClient, 15 * 60 * 1000); //Assume browser crashed if no request in 20 minutes
+    brokenBrowserTimer = setTimeout(restartClient, 7 * 60 * 1000); //Assume browser crashed if no request in 7 minutes
     
-    //logger.info('A client has requested a photo.  System average cpu load is ' + os.loadavg() + '. Free memory: ' + Math.round(os.freemem()/1048576) + ' out of ' + Math.round(os.totalmem()/1048576) + 'MB.')   
-    //logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-    if(!queuePaused) {
+    var idlePauseDelay = config.get('motionIdlePauseMinutes');
+    var idleSleepDelay = config.get('motionIdleSleepMinutes')
+    var idlePaused =  idlePauseDelay && 
+                      idleSleepDelay && 
+                      idlePauseDelay < idleSleepDelay && 
+                      (((new Date) - lastMotionTime)/(60 * 1000) > idlePauseDelay);
+    
+    if(!queuePaused && !idlePaused) {
       if(photoQueue.length > 0) {      
         currentPhoto = photoQueue.shift();
         logger.info('Got a picture from the queue.  Queue length now ' + photoQueue.length);
@@ -121,7 +128,10 @@ async function providePhoto(ctx) {
         requestAnotherPhoto();
       }
     } else {
-      logger.info('Queue is paused.  Returning previous picture.');
+      var message = 'Queue is paused because things are sleeping.  Returning previous picture.'
+      if(!queuePaused && idlePaused)
+        message = 'Queue is paused because no one seems to be around.  Returning previous picture.'
+      logger.info(message);
     }
     
     if(currentPhoto !== undefined) {

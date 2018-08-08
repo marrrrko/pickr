@@ -9,5 +9,24 @@
   "motionIdleSleepMinutes": 15,
   "motionIdlePauseMinutes": 4,
   "papertrailhost": null,
-  "papertrailport:": null
+  "papertrailport:": null,
+  "LOGGER_OPTIONS": { 
+	  "name": "pickr", 
+	  "streams": [
+		  {
+			  "type": "rotating-file",
+			  "path": "logs/server-debug.log",
+			  "level": "debug",
+			  "period": "1d",
+			  "count": 3
+		  },
+		  {
+			  "type": "rotating-file",
+			  "path": "logs/server-errors.log",
+			  "level": "error",
+			  "period": "1d",
+			  "count": 14
+		  }
+	  ] 
+  }
 }

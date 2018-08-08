@@ -9,8 +9,9 @@ const send = require('koa-send')
 const flickrLoader = require('./flickr-photo-loader')
 const config = require('config')
 const fs = require('fs')
-const logger = require('winston')
-const papertrail = require('winston-papertrail')
+//const logger = require('winston')
+const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'));
+//const papertrail = require('winston-papertrail')
 const http = require('http')
 const os = require('os')
 const monitorctl = require('./monitorcontrol');
@@ -25,9 +26,9 @@ var brokenBrowserTimer = setTimeout(restartClient, 15 * 60 * 1000);
 var idleMotionTimer = null;
 var lastMotionTime = new Date;
 
-logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
-logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
-logger.add(papertrail.Papertrail, { level: 'info', host: 'logs6.papertrailapp.com', port: 28797 });
+//logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
+//logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
+//logger.add(papertrail.Papertrail, { level: 'info', host: 'logs6.papertrailapp.com', port: 28797 });
 
 startThingsUp();
 

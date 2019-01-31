@@ -39,13 +39,13 @@ startThingsUp();
 
 async function startThingsUp() {
     logger.info("Getting things ready...")
-    
+
     let router = setupRouting();
     app.use(handlebars({ defaultLayout: 'main' }));
     app.use(bodyparser());
     app.use(serve('./public'))
     app.use(router.routes())
-    
+
     var port = process.env.PORT
     if(!port)
       port = 8080
@@ -54,13 +54,13 @@ async function startThingsUp() {
             port,
             null,
 
-            null,function() { 
+            null,function() {
               logger.info('Process #' + process.pid + ' started sharing photos on port ' + port)
             });
     server.keepAliveTimeout = 120000;
-    
+
     logger.info('App memory usage is ' + Math.round(process.memoryUsage().rss / (1048576),0) + 'MB (used heap = ' + Math.round(process.memoryUsage().heapUsed / (1048576),0) + 'MB)')
-    
+
     var token1 = PubSub.subscribe( 'photosArrivals', handleNewPhotoArrival );
     var token2 = PubSub.subscribe( 'photosRequests', flickrLoader.handlePhotoRequest );
     requestAnotherPhoto();
@@ -72,13 +72,13 @@ async function startThingsUp() {
     if(motionIdleSleepAfterMinutes && motionIdleSleepAfterMinutes > 0) {
       logger.info('Using motion detection to enable idle sleep')
       await startMotionIdleWatching(motionIdleSleepAfterMinutes);
-    } 
+    }
 }
 
 async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
   await setMonitorPower(1);
   //motion.startWatching();
-  var token3 = PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );  
+  var token3 = PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );
   await resetIdleMotionTimer(motionIdleSleepAfterMinutes);
 }
 
@@ -87,12 +87,12 @@ async function resetIdleMotionTimer(motionIdleSleepAfterMinutes) {
   lastMotionTime = new Date;
   if(idleMotionTimer)
     clearTimeout(idleMotionTimer);
-  
+
   if(queuePaused) {
     logger.info("Waking sleeping monitor")
     await setMonitorPower(1);
   }
-  
+
   idleMotionTimer = setTimeout(async function() {
     logger.debug("Idle timer is up! Time to sleep");
     await setMonitorPower(0);
@@ -113,18 +113,18 @@ async function providePhoto(ctx) {
     logger.info('A client has requested a photo.');
     if(brokenBrowserTimer)
       clearTimeout(brokenBrowserTimer);
-    
+
     brokenBrowserTimer = setTimeout(restartClient, 7 * 60 * 1000); //Assume browser crashed if no request in 7 minutes
-    
+
     var idlePauseDelay = config.get('motionIdlePauseMinutes');
     var idleSleepDelay = config.get('motionIdleSleepMinutes')
-    var idlePaused =  idlePauseDelay && 
-                      idleSleepDelay && 
-                      idlePauseDelay < idleSleepDelay && 
+    var idlePaused =  idlePauseDelay &&
+                      idleSleepDelay &&
+                      idlePauseDelay < idleSleepDelay &&
                       (((new Date) - lastMotionTime)/(60 * 1000) > idlePauseDelay);
-    
+
     if(!queuePaused && !idlePaused) {
-      if(photoQueue.length > 0) {      
+      if(photoQueue.length > 0) {
         currentPhoto = photoQueue.shift();
         logger.info('Got a picture from the queue.  Queue length now ' + photoQueue.length);
         if(photoQueue.length < 3)
@@ -139,10 +139,10 @@ async function providePhoto(ctx) {
         message = 'Queue is paused because no one seems to be around.  Returning previous picture.'
       logger.info(message);
     }
-    
+
     if(currentPhoto !== undefined) {
       ctx.body = currentPhoto;
-    } else {  
+    } else {
       logger.warn('No photo to serve.  Returning 404.');
       ctx.status = 404;
       ctx.body = { message: 'No file to serve yet.' };
@@ -165,7 +165,7 @@ function setupRouting() {
     router.get('/viewer', showViewer)
     router.get('/info', showInfo)
     router.post('/log', logClientMsg)
-    
+
     return router;
 }
 
@@ -184,7 +184,7 @@ async function showInfo(ctx, next) {
 async function logClientMsg(ctx, next) {
   var data = ctx.request.body
   //var ip = ctx.ips.length > 0 ? ctx.ips[ctx.ips.length - 1] : ctx.ip
-  logger.log(data.level,'CLIENT: ' + data.msg, data.extraInfo)
+  logger.info(data.level,'CLIENT: ' + data.msg, data.extraInfo)
   ctx.body = data
 }
 

@@ -5,24 +5,18 @@ const app = new koa()
 const routing = require('koa-router')
 const serve = require('koa-static')
 const handlebars = require('koa-handlebars')
-const send = require('koa-send')
-const flickrLoader = require('./flickr-photo-loader')
 const config = require('config')
-const fs = require('fs')
-//const logger = require('winston')
-const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'));
+const http = require('http')
+const PubSub = require('pubsub-js')
+
+const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'))
 logger.addStream({
   name: "console",
   stream: process.stderr,
   level: "debug"
 });
-//const papertrail = require('winston-papertrail')
-const http = require('http')
-const os = require('os')
-//const monitorctl = require('./monitorcontrol');
-const PubSub = require('pubsub-js');
-const moment = require('moment');
-//const motion = require('./motion');
+
+const flickrLoader = require('./flickr-photo-loader')(config, logger)
 
 var currentPhoto = undefined;
 var photoQueue = [];
@@ -31,9 +25,7 @@ var brokenBrowserTimer = setTimeout(restartClient, 15 * 60 * 1000);
 var idleMotionTimer = null;
 var lastMotionTime = new Date;
 
-//logger.add(logger.transports.File, { name: 'debug', filename: 'frame.log', 'timestamp':function() { return moment().format() ; } })
-//logger.add(logger.transports.File, { name: 'errors', filename: 'errors.log',level: 'warning', 'timestamp':function() { return moment().format() ; } })
-//logger.add(papertrail.Papertrail, { level: 'info', host: 'logs6.papertrailapp.com', port: 28797 });
+var motion = null;
 
 startThingsUp();
 
@@ -70,15 +62,16 @@ async function startThingsUp() {
 
     let motionIdleSleepAfterMinutes = config.get('motionIdleSleepMinutes');
     if(motionIdleSleepAfterMinutes && motionIdleSleepAfterMinutes > 0) {
-      logger.info('Using motion detection to enable idle sleep')
-      await startMotionIdleWatching(motionIdleSleepAfterMinutes);
+      await startMotionIdleWatching(motionIdleSleepAfterMinutes)
     }
 }
 
 async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
+  logger.info('Using motion detection to enable idle sleep')
   await setMonitorPower(1);
-  //motion.startWatching();
-  var token3 = PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );
+  motion = require('./motion')(logger)
+  motion.startWatching();
+  PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );
   await resetIdleMotionTimer(motionIdleSleepAfterMinutes);
 }
 
@@ -134,9 +127,9 @@ async function providePhoto(ctx) {
         requestAnotherPhoto();
       }
     } else {
-      var message = 'Queue is paused because things are sleeping.  Returning previous picture.'
+      var message = 'Queue is paused because things are sleeping.  A new picture will not be served.'
       if(!queuePaused && idlePaused)
-        message = 'Queue is paused because no one seems to be around.  Returning previous picture.'
+        message = 'Queue is paused because no one seems to be around.  A new picture will not be served.'
       logger.info(message);
     }
 

@@ -8,8 +8,6 @@
   "prefix": null,
   "motionIdleSleepMinutes": 15,
   "motionIdlePauseMinutes": 4,
-  "papertrailhost": null,
-  "papertrailport:": null,
   "LOGGER_OPTIONS": { 
 	  "name": "pickr", 
 	  "streams": [

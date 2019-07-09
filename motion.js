@@ -5,24 +5,23 @@ const PubSub = require('pubsub-js');
 module.exports = function(logger) {
 
   var startWatching = function(publishInactivity) {
-    logger.debug("Starting PIR watching");
-    
-    if(publishInactivity == undefined)
-      publishInactivity = false;
+    logger.info("Starting PIR watching")
+        
+    publishInactivity = !!publishInactivity
     
     pir.watch(function (err, value) {
       if (err) {
         throw err;
       }
     
-      logger.info('Got something from PIR: ' + value);
+      logger.debug('Got something from PIR: ' + value);
       if(value == 1 || publishInactivity)
         PubSub.publish( 'motion-activity', value);
     });
   }
 
   var stopWatching = function() {
-    logger.debug("Stopping PIR watching");
+    logger.info("Stopping PIR watching");
     pir.unwatch();
   }
 

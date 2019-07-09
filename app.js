@@ -70,6 +70,7 @@ async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
   logger.info('Using motion detection to enable idle sleep')
   await setMonitorPower(1);
   motion = require('./motion')(logger)
+  logger.info("HERE GOES WATCHING!")
   motion.startWatching();
   PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );
   await resetIdleMotionTimer(motionIdleSleepAfterMinutes);
@@ -126,11 +127,10 @@ async function providePhoto(ctx) {
         logger.warn('Looks like queue is empty.  Slow poke');
         requestAnotherPhoto();
       }
-    } else {
-      var message = 'Queue is paused because things are sleeping.  A new picture will not be served.'
-      if(!queuePaused && idlePaused)
-        message = 'Queue is paused because no one seems to be around.  A new picture will not be served.'
-      logger.info(message);
+    } else if(queuePaused) {
+      logger.info("Queue is paused (monitor should sleeping).  A new picture will not be served.");
+    } else if(idlePaused) {
+      logger.info("Monitor is on but no one seems to be around (idle).  A new picture will not be served.")
     }
 
     if(currentPhoto !== undefined) {

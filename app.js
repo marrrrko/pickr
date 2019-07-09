@@ -8,6 +8,7 @@ const handlebars = require('koa-handlebars')
 const config = require('config')
 const http = require('http')
 const PubSub = require('pubsub-js')
+const monitorctl = require('./monitorcontrol')
 
 const logger = require('bunyan').createLogger(config.get('LOGGER_OPTIONS'))
 logger.addStream({
@@ -70,7 +71,6 @@ async function startMotionIdleWatching(motionIdleSleepAfterMinutes) {
   logger.info('Using motion detection to enable idle sleep')
   await setMonitorPower(1);
   motion = require('./motion')(logger)
-  logger.info("HERE GOES WATCHING!")
   motion.startWatching();
   PubSub.subscribe( 'motion-activity', async function() { await resetIdleMotionTimer(motionIdleSleepAfterMinutes) } );
   await resetIdleMotionTimer(motionIdleSleepAfterMinutes);

@@ -190,10 +190,10 @@ async function setMonitorPower(on) {
   if(on) {
     console.log('Putting monitor to sleep');
     queuePaused = false;
-    //await monitorctl.wakeMonitor();
+    await monitorctl.wakeMonitor();
   } else {
     console.log('Waking monitor up');
     queuePaused = true;
-    //await monitorctl.putMonitorToSleep();
+    await monitorctl.putMonitorToSleep();
   }
 }

@@ -28,7 +28,7 @@
     "config": "^2.0.1",
     "exif-parser": "^0.1.12",
     "flickrapi": "^0.6.0",
-    "got": "^9.0.0",
+    "got": "^11.8.5",
     "koa": "^2.5.2",
     "koa-bodyparser": "^4.2.1",
     "koa-handlebars": "^2.0.0",
